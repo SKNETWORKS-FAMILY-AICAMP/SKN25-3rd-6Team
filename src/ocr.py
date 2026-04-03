@@ -48,3 +48,6 @@ for i, page in enumerate(pages):
 
     )
     print(f"{i+1}page : {response.output_text}")
+
+# TODO : 저장 경로 방식 결정 필요
+# TODO : 모델 설정
