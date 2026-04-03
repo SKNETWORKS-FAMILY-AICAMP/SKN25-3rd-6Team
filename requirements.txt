@@ -11,3 +11,5 @@ requests
 pandas
 pdf2image
 matplotlib
+jupyter
+numpy
