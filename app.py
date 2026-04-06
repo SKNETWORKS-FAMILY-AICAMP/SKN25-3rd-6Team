@@ -18,6 +18,19 @@ load_dotenv()
 
 from retrieval import CardRetriever
 import templates as tmpl
+from db.crud import (
+    ensure_db,
+    get_or_create_user,
+    update_user_mbti,
+    get_user_cards,
+    add_user_card,
+    remove_user_card_by_name,
+    save_chat_message,
+    get_chat_history,
+    clear_chat_history,
+)
+
+ensure_db()
 
 st.set_page_config(
     page_title="PickCardU",
@@ -32,12 +45,10 @@ with open(css_path, "r", encoding="utf-8") as f:
 
 @st.cache_resource
 def init_retriever():
-    """CardRetriever를 한 번만 생성하여 캐싱"""
     return CardRetriever()
 
 @st.cache_resource
 def init_llm():
-    """ChatOpenAI를 한 번만 생성하여 캐싱"""
     return ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0.3,
@@ -60,7 +71,7 @@ MBTI_LIST = list(MBTI_PROMPTS.keys())
 
 @st.cache_data
 def load_card_name_map():
-    """card_name_map.json에서 raw card_name → 한국어 표시명 매핑 로드"""
+    """Load raw card_name → Korean display name mapping from card_name_map.json"""
     map_path = os.path.join(ROOT_DIR, "src", "card_name_map.json")
     try:
         with open(map_path, "r", encoding="utf-8") as f:
@@ -77,7 +88,7 @@ for _raw, _display in CARD_NAME_MAP.items():
 
 @st.cache_data
 def load_rag_rules() -> dict:
-    """rag_rules.yml에서 전역 RAG 시스템 규칙을 로드"""
+    """Load global RAG system rules from rag_rules.yml"""
     rules_path = os.path.join(ROOT_DIR, "prompts", "rag_rules.yml")
     with open(rules_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -100,9 +111,7 @@ def build_system_rules_text(rules: dict) -> str:
 
 @st.cache_data
 def load_card_list():
-    """ChromaDB에 저장된 카드명을 한국어 표시명으로 변환하여 반환
-    JSON 매핑이 있으면 사용하고, 없으면 언더스코어→공백 변환으로 폴백
-    """
+    """return sorted list of available card display names for registration"""
     try:
         info = retriever.get_db_info()
         raw_names = info.get("cards", {}).keys()
@@ -221,6 +230,11 @@ def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> 
     answer = chain.invoke({"context": context, "question": question, "chat_history": chat_history})
     return answer
 
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+
 if "sessions" not in st.session_state:
     st.session_state.sessions = [
         {"id": 0, "title": "새 대화", "messages": []}
@@ -237,11 +251,32 @@ if "registered_cards" not in st.session_state:
     st.session_state.registered_cards = []
 
 if "page_mode" not in st.session_state:
-    st.session_state.page_mode = "splash"  # 'splash', 'chat', 'mypage'
+    st.session_state.page_mode = "splash"  # 'splash', 'login', 'chat', 'mypage'
 
 if "user_name" not in st.session_state:
     st.session_state.user_name = "사용자"
 
+def _sync_from_db():
+    """ session state init or update and restore user data from DB (cards, chat history)"""
+    uid = st.session_state.user_id
+    if uid is None:
+        return
+    # 보유 카드 복원
+    db_cards = get_user_cards(uid)
+    st.session_state.registered_cards = [c["card_name"] for c in db_cards]
+    # 대화 기록 복원
+    history = get_chat_history(uid, limit=500)
+    if history:
+        messages = [{"role": h["role"], "content": h["content"]} for h in history]
+        first_user_msg = next(
+            (m["content"] for m in messages if m["role"] == "user"), "이전 대화"
+        )
+        title = first_user_msg[:25] + ("..." if len(first_user_msg) > 25 else "")
+        st.session_state.sessions = [
+            {"id": 0, "title": title, "messages": messages},
+        ]
+        st.session_state.active_session_id = 0
+        st.session_state.next_session_id = 1
 
 def get_active_session():
     """현재 활성 세션을 반환"""
@@ -250,9 +285,7 @@ def get_active_session():
             return s
     return st.session_state.sessions[0]
 
-
 def create_new_session():
-    """새 대화 세션을 생성하고 활성화"""
     new_id = st.session_state.next_session_id
     st.session_state.sessions.insert(0, {
         "id": new_id,
@@ -262,8 +295,48 @@ def create_new_session():
     st.session_state.next_session_id = new_id + 1
     st.session_state.active_session_id = new_id
 
+# ── 스플래시 페이지 (최초 진입) ──
 if st.session_state.page_mode == "splash":
     st.markdown(tmpl.SIDEBAR_HIDE_CSS, unsafe_allow_html=True)
+    st.markdown(tmpl.SPLASH, unsafe_allow_html=True)
+    time.sleep(2.2)
+    st.session_state.page_mode = "login"
+    st.rerun()
+
+# ── 로그인 페이지 ──
+if not st.session_state.logged_in:
+    st.markdown(tmpl.SIDEBAR_HIDE_CSS, unsafe_allow_html=True)
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        st.markdown("## 💳 PickCardU")
+        st.markdown("나만의 카드 추천 챗봇에 오신 것을 환영합니다!")
+        st.markdown("---")
+        with st.form("login_form"):
+            login_name = st.text_input("이름", placeholder="이름을 입력하세요")
+            mbti_options_login = [
+                f"{m} – {MBTI_PROMPTS[m]['name']}" for m in MBTI_LIST
+            ]
+            login_mbti_idx = st.selectbox(
+                "MBTI",
+                range(len(MBTI_LIST)),
+                format_func=lambda i: mbti_options_login[i],
+            )
+            submitted = st.form_submit_button("시작하기 →", use_container_width=True)
+        if submitted and login_name.strip():
+            user = get_or_create_user(login_name.strip(), MBTI_LIST[login_mbti_idx])
+            chosen_mbti = MBTI_LIST[login_mbti_idx]
+            if user.mbti != chosen_mbti:
+                update_user_mbti(user.user_id, chosen_mbti)
+            st.session_state.user_id = user.user_id
+            st.session_state.user_name = user.username
+            st.session_state.selected_mbti = chosen_mbti
+            st.session_state.logged_in = True
+            _sync_from_db()
+            st.session_state.page_mode = "chat"
+            st.rerun()
+        elif submitted:
+            st.warning("이름을 입력해주세요.")
+    st.stop()
 
 with st.sidebar:
     st.markdown(tmpl.SIDEBAR_LOGO, unsafe_allow_html=True)
@@ -277,7 +350,10 @@ with st.sidebar:
         index=MBTI_LIST.index(st.session_state.selected_mbti) if st.session_state.selected_mbti else 0,
         label_visibility="collapsed",
     )
-    st.session_state.selected_mbti = MBTI_LIST[selected_idx]
+    new_mbti = MBTI_LIST[selected_idx]
+    if new_mbti != st.session_state.selected_mbti and st.session_state.get("user_id"):
+        update_user_mbti(st.session_state.user_id, new_mbti)
+    st.session_state.selected_mbti = new_mbti
 
     st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
@@ -305,13 +381,8 @@ with st.sidebar:
         st.session_state.page_mode = "mypage" if st.session_state.page_mode != "mypage" else "chat"
         st.rerun()
 
-if st.session_state.page_mode == "splash":
-    st.markdown(tmpl.SPLASH, unsafe_allow_html=True)
-    time.sleep(2.2)
-    st.session_state.page_mode = "chat"
-    st.rerun()
 
-elif st.session_state.page_mode == "mypage":
+if st.session_state.page_mode == "mypage":
     st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
 
     back_col, _ = st.columns([1, 8])
@@ -344,6 +415,8 @@ elif st.session_state.page_mode == "mypage":
             with col_btn:
                 if st.button("추가", key="add_cards_btn", use_container_width=True):
                     if selected_to_add:
+                        for _card_display in selected_to_add:
+                            add_user_card(st.session_state.user_id, _card_display, "")
                         st.session_state.registered_cards.extend(selected_to_add)
                         st.rerun()
 
@@ -353,6 +426,7 @@ elif st.session_state.page_mode == "mypage":
             with cols[i % 4]:
                 st.markdown(tmpl.card_tile(html.escape(card)), unsafe_allow_html=True)
                 if st.button("✕", key=f"remove_{i}", use_container_width=True):
+                    remove_user_card_by_name(st.session_state.user_id, card)
                     st.session_state.registered_cards.pop(i)
                     st.rerun()
     else:
@@ -404,4 +478,8 @@ else:
 
         session["messages"].append({"role": "user", "content": user_input})
         session["messages"].append({"role": "assistant", "content": bot_reply})
+
+        if st.session_state.get("user_id"):
+            save_chat_message(st.session_state.user_id, "user", user_input)
+            save_chat_message(st.session_state.user_id, "assistant", bot_reply)
         st.rerun()

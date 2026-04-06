@@ -14,3 +14,4 @@ pandas
 pdf2image
 matplotlib
 easyocr
+sqlalchemy
