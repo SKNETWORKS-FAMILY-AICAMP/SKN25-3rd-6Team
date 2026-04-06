@@ -65,10 +65,7 @@ MBTI_LIST = list(MBTI_PROMPTS.keys())
 @st.cache_data
 def load_card_name_map():
     """card_name_map.json에서 raw card_name → 한국어 표시명 매핑 로드"""
-    map_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "card_name_map.json"
-    )
+    map_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "card_name_map.json")
     try:
         with open(map_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -77,15 +74,17 @@ def load_card_name_map():
 
 CARD_NAME_MAP = load_card_name_map()
 
-# display_name → [raw_name, ...] 역매핑 (BLISS5 등 중복 파일 처리)
+# display_name → [raw_name, ...] 역매핑 (동일 카드의 PDF/OCR txt 두 소스 처리)
 DISPLAY_TO_RAW: dict[str, list[str]] = {}
-for raw, display in CARD_NAME_MAP.items():
-    DISPLAY_TO_RAW.setdefault(display, []).append(raw)
+for _raw, _display in CARD_NAME_MAP.items():
+    DISPLAY_TO_RAW.setdefault(_display, []).append(_raw)
 
 
 @st.cache_data
 def load_card_list():
-    """ChromaDB에 저장된 카드명을 한국어 표시명으로 변환하여 반환"""
+    """ChromaDB에 저장된 카드명을 한국어 표시명으로 변환하여 반환
+    JSON 매핑이 있으면 사용하고, 없으면 언더스코어→공백 변환으로 폴백
+    """
     try:
         info = retriever.get_db_info()
         raw_names = info.get("cards", {}).keys()
@@ -93,14 +92,12 @@ def load_card_list():
         for raw in raw_names:
             if not raw or raw == "Unknown":
                 continue
-            # 매핑이 있으면 한국어 표시명, 없으면 raw 그대로
-            display_names.add(CARD_NAME_MAP.get(raw, raw))
+            display_names.add(CARD_NAME_MAP.get(raw, raw.replace("_", " ")))
         return sorted(display_names)
     except Exception:
         return []
 
 AVAILABLE_CARDS = load_card_list()
-
 
 def build_rag_chain(mbti_type: str, has_registered_cards: bool = False):
     """선택된 MBTI에 맞는 RAG 체인을 생성 (보유 카드 유무에 따라 지시문 추가)"""
@@ -164,8 +161,8 @@ def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> 
     if has_registered:
         my_card_docs = []
         for display_name in registered:
-            # 표시명 → raw card_name 목록으로 확장 (매핑 없으면 표시명 그대로)
-            raw_names = DISPLAY_TO_RAW.get(display_name, [display_name])
+            # 표시명 → raw card_name 목록 (PDF + OCR txt 두 소스 모두 검색)
+            raw_names = DISPLAY_TO_RAW.get(display_name, [display_name.replace(" ", "_")])
             for raw_name in raw_names:
                 docs = retriever.search_by_metadata(question, card_name=raw_name, k=5)
                 my_card_docs.extend(docs)
