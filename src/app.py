@@ -221,6 +221,9 @@ if "selected_mbti" not in st.session_state:
 if "registered_cards" not in st.session_state:
     st.session_state.registered_cards = []  # 사용자가 등록한 카드명 리스트
 
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None  # 데이터베이스에 저장된 사용자 ID
+
 if "page_mode" not in st.session_state:
     st.session_state.page_mode = "chat"  # 'chat' 또는 'card_register'
 
