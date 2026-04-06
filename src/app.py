@@ -4,6 +4,7 @@ import sys
 import html
 import yaml
 import json
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -15,8 +16,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv()
 
 from retrieval import CardRetriever
+import templates as tmpl
 
-# page setting
 st.set_page_config(
     page_title="PickCardU",
     page_icon="💳",
@@ -24,12 +25,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# CSS
 css_path = os.path.join(os.path.dirname(__file__), "style.css")
 with open(css_path, "r", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# initialize retriever and llm
 @st.cache_resource
 def init_retriever():
     """CardRetriever를 한 번만 생성하여 캐싱"""
@@ -47,7 +46,6 @@ def init_llm():
 retriever = init_retriever()
 llm = init_llm()
 
-# MBTI prompts loading
 @st.cache_data
 def load_mbti_prompts():
     """prompts.yml에서 MBTI별 프롬프트를 로드"""
@@ -74,7 +72,7 @@ def load_card_name_map():
 
 CARD_NAME_MAP = load_card_name_map()
 
-# display_name → [raw_name, ...] 역매핑 (동일 카드의 PDF/OCR txt 두 소스 처리)
+# reverse map: display_name → [raw_name, ...]
 DISPLAY_TO_RAW: dict[str, list[str]] = {}
 for _raw, _display in CARD_NAME_MAP.items():
     DISPLAY_TO_RAW.setdefault(_display, []).append(_raw)
@@ -113,7 +111,6 @@ def build_rag_chain(mbti_type: str, has_registered_cards: bool = False):
     """
     template = template.rstrip() + "\n" + time_info
 
-    # 보유 카드가 있을 때 추가 지시문 삽입
     if has_registered_cards:
         card_instruction = """
         [보유 카드 우선 답변 원칙]
@@ -154,14 +151,12 @@ def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> 
     registered = st.session_state.get("registered_cards", [])
     has_registered = bool(registered)
 
-    # registered 카드 검색 결과를 우선적으로 컨텍스트에 포함
     my_context = ""
     my_card_names_found = set()
 
     if has_registered:
         my_card_docs = []
         for display_name in registered:
-            # 표시명 → raw card_name 목록 (PDF + OCR txt 두 소스 모두 검색)
             raw_names = DISPLAY_TO_RAW.get(display_name, [display_name.replace(" ", "_")])
             for raw_name in raw_names:
                 docs = retriever.search_by_metadata(question, card_name=raw_name, k=5)
@@ -177,7 +172,6 @@ def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> 
                     my_card_names_found.add(name)
             my_context = "\n---\n".join(my_context_parts)
 
-    # 보유 카드가 없거나 보유 카드에서 결과를 찾지 못한 경우에만 일반 검색
     recommend_context = ""
     if not has_registered or not my_context:
         general_results = retriever.search_with_score(question, k=5)
@@ -191,7 +185,6 @@ def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> 
                 recommend_parts.append(f"[{card}] (유사도: {score:.4f})\n{text}")
         recommend_context = "\n---\n".join(recommend_parts) if recommend_parts else ""
 
-    # final context assembly
     if has_registered and my_context:
         context = f"[보유 카드 정보]\n{my_context}"
     elif recommend_context:
@@ -199,12 +192,10 @@ def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> 
     else:
         return "죄송합니다. 관련 카드 정보를 찾지 못했습니다."
 
-    # RAG chain answer generation
     chain = build_rag_chain(mbti_type, has_registered_cards=has_registered)
     answer = chain.invoke({"context": context, "question": question, "chat_history": chat_history})
     return answer
 
-# session state setup
 if "sessions" not in st.session_state:
     st.session_state.sessions = [
         {"id": 0, "title": "새 대화", "messages": []}
@@ -218,10 +209,13 @@ if "selected_mbti" not in st.session_state:
     st.session_state.selected_mbti = None
 
 if "registered_cards" not in st.session_state:
-    st.session_state.registered_cards = []  # 사용자가 등록한 카드명 리스트
+    st.session_state.registered_cards = []
 
 if "page_mode" not in st.session_state:
-    st.session_state.page_mode = "chat"  # 'chat' 또는 'card_register'
+    st.session_state.page_mode = "splash"  # 'splash', 'chat', 'mypage'
+
+if "user_name" not in st.session_state:
+    st.session_state.user_name = "사용자"
 
 
 def get_active_session():
@@ -243,18 +237,12 @@ def create_new_session():
     st.session_state.next_session_id = new_id + 1
     st.session_state.active_session_id = new_id
 
-# sidebar
-with st.sidebar:
-    st.markdown("""
-    <div class="logo-area">
-        <div class="logo-text">
-            <span class="logo-pick">Pick</span><span class="logo-card">Card</span><span class="logo-u">U</span>
-        </div>
-        <div class="logo-version">v. 1.0.0</div>
-    </div>
-    """, unsafe_allow_html=True)
+if st.session_state.page_mode == "splash":
+    st.markdown(tmpl.SIDEBAR_HIDE_CSS, unsafe_allow_html=True)
 
-    # MBTI selector
+with st.sidebar:
+    st.markdown(tmpl.SIDEBAR_LOGO, unsafe_allow_html=True)
+
     st.markdown('<p class="sidebar-label">나의 MBTI</p>', unsafe_allow_html=True)
     mbti_options = ["{} – {}".format(m, MBTI_PROMPTS[m]["name"]) for m in MBTI_LIST]
     selected_idx = st.selectbox(
@@ -268,12 +256,10 @@ with st.sidebar:
 
     st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
-    # new chat button
     if st.button("➕  새 대화", key="new_chat", use_container_width=True):
         create_new_session()
         st.rerun()
 
-    # session list
     st.markdown('<p class="sidebar-label-sm">이전 대화</p>', unsafe_allow_html=True)
     with st.container(height=220, border=False):
         for session in st.session_state.sessions:
@@ -285,110 +271,80 @@ with st.sidebar:
                 use_container_width=True,
             ):
                 st.session_state.active_session_id = session["id"]
+                st.session_state.page_mode = "chat"
                 st.rerun()
 
     st.markdown('<hr class="sidebar-divider-lg">', unsafe_allow_html=True)
 
-    n_cards = len(st.session_state.registered_cards)
-    card_btn_label = f"💳  내 카드 관리 ({n_cards}장)" if n_cards > 0 else "💳  카드 등록"
-    if st.button(card_btn_label, key="card_register_btn", use_container_width=True):
-        st.session_state.page_mode = "card_register" if st.session_state.page_mode != "card_register" else "chat"
+    if st.button("🪪  My Page", key="mypage_btn", use_container_width=True):
+        st.session_state.page_mode = "mypage" if st.session_state.page_mode != "mypage" else "chat"
         st.rerun()
 
-# CARD REGISTER PAGE
-if st.session_state.page_mode == "card_register":
+if st.session_state.page_mode == "splash":
+    st.markdown(tmpl.SPLASH, unsafe_allow_html=True)
+    time.sleep(2.2)
+    st.session_state.page_mode = "chat"
+    st.rerun()
+
+elif st.session_state.page_mode == "mypage":
     st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
-    st.markdown('<p class="card-reg-header">💳 내 카드 등록 / 관리</p>', unsafe_allow_html=True)
 
-    # card display section
-    st.markdown('<div class="registered-section">', unsafe_allow_html=True)
-    st.markdown('<p class="registered-section-title">등록된 내 카드</p>', unsafe_allow_html=True)
+    back_col, _ = st.columns([1, 8])
+    with back_col:
+        if st.button("← 뒤로", key="back_to_chat"):
+            st.session_state.page_mode = "chat"
+            st.rerun()
 
-    if st.session_state.registered_cards:
-        chips_html = ""
-        for card in st.session_state.registered_cards:
-            chips_html += f'<span class="registered-card-chip"><span class="chip-icon">💳</span>{card}</span>'
-        st.markdown(chips_html, unsafe_allow_html=True)
-    else:
-        st.markdown('<p class="no-cards-msg">아직 등록된 카드가 없습니다.</p>', unsafe_allow_html=True)
+    mbti_label = st.session_state.selected_mbti or "미설정"
+    st.markdown(
+        tmpl.profile_card(html.escape(st.session_state.user_name), html.escape(mbti_label)),
+        unsafe_allow_html=True,
+    )
 
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # card add section
-    st.markdown('<div class="registered-section">', unsafe_allow_html=True)
-    st.markdown('<p class="registered-section-title">카드 추가</p>', unsafe_allow_html=True)
+    st.markdown('<p class="mypage-section-header">MY CARD</p>', unsafe_allow_html=True)
+    st.markdown('<p class="mypage-sub-label">보유 중인 카드</p>', unsafe_allow_html=True)
 
     if AVAILABLE_CARDS:
         addable = [c for c in AVAILABLE_CARDS if c not in st.session_state.registered_cards]
         if addable:
-            selected_to_add = st.multiselect(
-                "등록할 카드를 선택하세요",
-                options=addable,
-                default=[],
-                placeholder="카드 이름을 검색하세요...",
-                label_visibility="collapsed",
-            )
-            if st.button("✅ 선택한 카드 등록", key="add_cards_btn", use_container_width=True):
-                if selected_to_add:
-                    st.session_state.registered_cards.extend(selected_to_add)
-                    st.rerun()
-        else:
-            st.info("모든 카드가 이미 등록되어 있습니다.")
-    else:
-        st.warning("데이터베이스에서 카드 목록을 불러올 수 없습니다.")
+            col_search, col_btn = st.columns([5, 1])
+            with col_search:
+                selected_to_add = st.multiselect(
+                    "카드 추가",
+                    options=addable,
+                    default=[],
+                    placeholder="카드 이름을 검색하세요...",
+                    label_visibility="collapsed",
+                )
+            with col_btn:
+                if st.button("추가", key="add_cards_btn", use_container_width=True):
+                    if selected_to_add:
+                        st.session_state.registered_cards.extend(selected_to_add)
+                        st.rerun()
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # card remove section
     if st.session_state.registered_cards:
-        st.markdown('<div class="registered-section">', unsafe_allow_html=True)
-        st.markdown('<p class="registered-section-title">카드 해제</p>', unsafe_allow_html=True)
-
-        selected_to_remove = st.multiselect(
-            "해제할 카드를 선택하세요",
-            options=st.session_state.registered_cards,
-            default=[],
-            placeholder="해제할 카드를 선택...",
-            label_visibility="collapsed",
-        )
-        if st.button("🗑️ 선택한 카드 해제", key="remove_cards_btn", use_container_width=True):
-            if selected_to_remove:
-                st.session_state.registered_cards = [
-                    c for c in st.session_state.registered_cards if c not in selected_to_remove
-                ]
-                st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("💬 대화로 돌아가기", key="back_to_chat", use_container_width=True):
-        st.session_state.page_mode = "chat"
-        st.rerun()
+        cols = st.columns(4)
+        for i, card in enumerate(st.session_state.registered_cards):
+            with cols[i % 4]:
+                st.markdown(tmpl.card_tile(html.escape(card)), unsafe_allow_html=True)
+                if st.button("✕", key=f"remove_{i}", use_container_width=True):
+                    st.session_state.registered_cards.pop(i)
+                    st.rerun()
+    else:
+        st.markdown('<p class="no-cards-msg">아직 등록된 카드가 없습니다.</p>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# chat page
 else:
     active_session = get_active_session()
 
-    # messages display
     chat_html = '<div class="chat-wrapper">'
     for msg in active_session["messages"]:
         content = html.escape(msg["content"]).replace("\n", "<br>")
         if msg["role"] == "user":
-            chat_html += (
-                '<div class="msg-user-row">'
-                f'<div class="msg-user-bubble">{content}</div>'
-                '<div class="avatar">👤</div>'
-                '</div>'
-            )
+            chat_html += tmpl.user_bubble(content)
         else:
-            chat_html += (
-                '<div class="msg-bot-row">'
-                '<div class="avatar">🤖</div>'
-                f'<div class="msg-bot-bubble">{content}</div>'
-                '</div>'
-            )
+            chat_html += tmpl.bot_bubble(content)
     chat_html += '<div class="scroll-spacer"></div></div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
@@ -397,31 +353,15 @@ else:
     if user_input and user_input.strip():
         session = get_active_session()
 
-        # session title setting
         if len(session["messages"]) == 0:
             session["title"] = user_input[:25] + ("..." if len(user_input) > 25 else "")
 
-        # display user message immediately
         escaped_input = html.escape(user_input).replace("\n", "<br>")
-        st.markdown(
-            '<div class="msg-user-row">'
-            f'<div class="msg-user-bubble">{escaped_input}</div>'
-            '<div class="avatar">👤</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown(tmpl.user_bubble(escaped_input), unsafe_allow_html=True)
 
-        # bot placeholder
         bot_placeholder = st.empty()
-        bot_placeholder.markdown(
-            '<div class="msg-bot-row">'
-            '<div class="avatar">🤖</div>'
-            '<div class="msg-bot-bubble">⏳ 카드 혜택을 검색하고 있습니다...</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        bot_placeholder.markdown(tmpl.BOT_LOADING, unsafe_allow_html=True)
 
-        # RAG response generation
         mbti = st.session_state.selected_mbti or MBTI_LIST[0]
         history_messages = []
         for m in session["messages"]:
@@ -434,17 +374,9 @@ else:
         except Exception as e:
             bot_reply = f"죄송합니다. 답변 생성 중 오류가 발생했습니다: {e}"
 
-        # update bot response
         escaped_reply = html.escape(bot_reply).replace("\n", "<br>")
-        bot_placeholder.markdown(
-            '<div class="msg-bot-row">'
-            '<div class="avatar">🤖</div>'
-            f'<div class="msg-bot-bubble">{escaped_reply}</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+        bot_placeholder.markdown(tmpl.bot_bubble(escaped_reply), unsafe_allow_html=True)
 
-        # message history update
         session["messages"].append({"role": "user", "content": user_input})
         session["messages"].append({"role": "assistant", "content": bot_reply})
         st.rerun()

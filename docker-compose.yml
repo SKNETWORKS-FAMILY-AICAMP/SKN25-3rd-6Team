@@ -10,5 +10,6 @@ services:
       - ./sqlite_db:/app/sqlite_db
       - ./src:/app/src
       - ./prompts:/app/prompts
+      - ./.streamlit:/app/.streamlit
     env_file:
       - .env
