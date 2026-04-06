@@ -70,52 +70,44 @@ html, body, [data-testid="stAppViewContainer"] {
     margin-top: -4px;
 }
 
-/* sidebar-menu-button */
-.menu-btn-active {
+/* sidebar buttons */
+div[data-testid="stSidebar"] .stButton > button {
+    border-radius: 10px;
+    padding: 0.55rem 1rem;
+    font-size: 0.85rem;
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: background 0.15s;
+    text-align: left;
+    justify-content: flex-start;
+}
+div[data-testid="stSidebar"] .stButton:first-of-type > button {
     background-color: var(--color-primary);
     color: var(--color-text-dark);
-    border-radius: 10px;
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
     font-weight: 600;
-    width: 100%;
     text-align: center;
-    border: none;
-    cursor: pointer;
-    margin-bottom: 0.3rem;
-}
-.menu-btn-inactive {
-    background-color: transparent;
-    color: var(--color-text-secondary);
-    border-radius: 10px;
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 400;
-    width: 100%;
-    text-align: center;
-    border: none;
-    cursor: pointer;
-    margin-bottom: 0.3rem;
-}
-.menu-btn-inactive:hover {
-    background-color: var(--color-bg-hover);
-    color: var(--color-text-dark);
+    justify-content: center;
 }
 
-/* card register */
-.card-register {
-    position: absolute;
-    bottom: 2rem;
-    left: 0;
-    width: 100%;
-    padding: 0 1.2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--color-text-medium);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
+/* sidebar labels & dividers */
+.sidebar-label {
+    font-size: 0.8rem;
+    color: var(--color-text-hint);
+    margin-bottom: 0.2rem;
+}
+.sidebar-label-sm {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin: 0.6rem 0 0.3rem 0.2rem;
+}
+.sidebar-divider {
+    border: none;
+    border-top: 1px solid var(--color-border-light);
+    margin: 0.8rem 0;
+}
+.sidebar-divider-lg {
+    border: none;
+    border-top: 1px solid var(--color-border-light);
+    margin: 1rem 0 0.5rem 0;
 }
 
 /* chat */
@@ -173,7 +165,7 @@ html, body, [data-testid="stAppViewContainer"] {
     line-height: 1.6;
 }
 
-/* chat input – Streamlit native bottom fixed bar */
+/* chat input */
 [data-testid="stBottomBlockContainer"] {
     background-color: var(--color-bg);
     padding: 0.8rem 2rem 1.2rem 2rem;
@@ -208,41 +200,6 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 button[kind="headerNoPadding"] { display: none; }
 [data-testid="collapsedControl"] { display: none; }
-
-/* new chat button */
-.new-chat-btn {
-    background-color: var(--color-primary);
-    color: var(--color-text-dark);
-    font-weight: 600;
-    border-radius: 10px;
-    border: none;
-    margin-bottom: 0.5rem;
-}
-
-/* session item */
-.session-item {
-    padding: 0.5rem 0.8rem;
-    border-radius: 8px;
-    margin-bottom: 0.25rem;
-    font-size: 0.85rem;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.session-active {
-    background-color: var(--color-primary-light);
-    color: var(--color-text-dark);
-    font-weight: 600;
-}
-.session-inactive {
-    background-color: transparent;
-    color: var(--color-text-secondary);
-    font-weight: 400;
-}
-.session-inactive:hover {
-    background-color: var(--color-bg-hover);
-}
 
 /* card registration page */
 .card-reg-header {

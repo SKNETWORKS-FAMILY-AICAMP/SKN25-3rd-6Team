@@ -3,6 +3,8 @@ import os
 import sys
 import html
 import yaml
+import json
+from datetime import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -61,13 +63,39 @@ MBTI_LIST = list(MBTI_PROMPTS.keys())
 
 
 @st.cache_data
+def load_card_name_map():
+    """card_name_map.json에서 raw card_name → 한국어 표시명 매핑 로드"""
+    map_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "card_name_map.json"
+    )
+    try:
+        with open(map_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+CARD_NAME_MAP = load_card_name_map()
+
+# display_name → [raw_name, ...] 역매핑 (BLISS5 등 중복 파일 처리)
+DISPLAY_TO_RAW: dict[str, list[str]] = {}
+for raw, display in CARD_NAME_MAP.items():
+    DISPLAY_TO_RAW.setdefault(display, []).append(raw)
+
+
+@st.cache_data
 def load_card_list():
-    """ChromaDB에 저장된 카드명 목록을 가져옴"""
+    """ChromaDB에 저장된 카드명을 한국어 표시명으로 변환하여 반환"""
     try:
         info = retriever.get_db_info()
-        cards = sorted(info.get("cards", {}).keys())
-        # 'Unknown' 등 무의미한 항목 제거
-        return [c for c in cards if c and c != "Unknown"]
+        raw_names = info.get("cards", {}).keys()
+        display_names = set()
+        for raw in raw_names:
+            if not raw or raw == "Unknown":
+                continue
+            # 매핑이 있으면 한국어 표시명, 없으면 raw 그대로
+            display_names.add(CARD_NAME_MAP.get(raw, raw))
+        return sorted(display_names)
     except Exception:
         return []
 
@@ -77,19 +105,34 @@ AVAILABLE_CARDS = load_card_list()
 def build_rag_chain(mbti_type: str, has_registered_cards: bool = False):
     """선택된 MBTI에 맞는 RAG 체인을 생성 (보유 카드 유무에 따라 지시문 추가)"""
     template = MBTI_PROMPTS[mbti_type]["template"]
+    now = datetime.now()
+    weekday_kr = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"][now.weekday()]
+    is_weekend = now.weekday() >= 5
+    time_info = f"""
+    [현재 시간 정보]
+    - 현재 시각 : {now.strftime("%Y-%m-%d %H:%M")} ({weekday_kr})
+    - 주말 여부 : {"주말(토/일)" if is_weekend else "평일"}
+    - 시간대 참고 : 카드 혜택 중 시간 조건(예 : 오후 9시~오전 9시, 주말 한정 등)이 있는 경우, 위 현재 시각을 기준으로 해당 혜택이 지금 적용 가능한지 안내하십시오.
+    """
+    template = template.rstrip() + "\n" + time_info
 
     # 보유 카드가 있을 때 추가 지시문 삽입
     if has_registered_cards:
         card_instruction = """
-    [보유 카드 우선 답변 원칙]
-    사용자가 보유 중인 카드 정보가 [보유 카드 정보] 섹션에 제공됩니다.
-    답변 시 반드시 아래 순서를 따르십시오:
-    1단계) 먼저 [보유 카드 정보]에서 질문과 관련된 혜택이 있는지 확인하고, 있다면 해당 카드의 혜택을 가장 먼저 안내하십시오.
-    2단계) 보유 카드에 관련 혜택이 없거나 부족한 경우에만, [추천 카드 정보]에서 더 적합한 카드를 추천하십시오.
-    3단계) 보유 카드 혜택과 추천 카드를 비교해 보여주면 사용자에게 더 유용합니다.
-    - 보유 카드를 언급할 때는 "고객님이 보유하신 [카드명]의 경우..." 형태로 명확히 구분하십시오.
-    - 추천 카드를 언급할 때는 "추가로 추천드리는 카드는..." 형태로 구분하십시오.
-    """
+        [보유 카드 우선 답변 원칙]
+        사용자가 보유 중인 카드 정보가 [보유 카드 정보] 섹션에 제공됩니다.
+        답변 시 반드시 아래 원칙을 따르십시오:
+
+        1) [보유 카드 정보]에서 질문과 관련된 혜택을 찾아 정확히 안내하십시오.
+        - 반드시 context에 기재된 수치(할인율, 한도, 조건 등)를 그대로 인용하십시오.
+        - context에 없는 수치는 절대 추측하거나 생성하지 마십시오.
+        2) 보유 카드 혜택만으로 충분히 답변을 완료하십시오.
+        3) 혜택에 시간 조건(예 : Night TIME 오후 9시~오전 9시, 주말 한정 등)이 있는 경우, [현재 시간 정보]를 참조하여 "지금 이 시간에 적용 가능합니다/불가합니다"를 명시하십시오.
+        4) 답변 마지막에, 다른 카드와 비교가 도움이 될 수 있다면 "더 유리한 카드가 있는지 비교해드릴까요?" 한 문장만 추가하십시오.
+        5) 사용자가 비교를 요청하지 않는 한, 다른 카드를 추천하거나 비교표를 작성하지 마십시오.
+
+        - 보유 카드를 언급할 때는 "고객님이 보유하신 [카드명]의 경우..." 형태로 시작하십시오.
+        """
         template = template.rstrip() + "\n" + card_instruction
 
     prompt = ChatPromptTemplate.from_messages([
@@ -120,40 +163,40 @@ def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> 
 
     if has_registered:
         my_card_docs = []
-        for card_name in registered:
-            docs = retriever.search_by_metadata(question, card_name=card_name, k=3)
-            my_card_docs.extend(docs)
+        for display_name in registered:
+            # 표시명 → raw card_name 목록으로 확장 (매핑 없으면 표시명 그대로)
+            raw_names = DISPLAY_TO_RAW.get(display_name, [display_name])
+            for raw_name in raw_names:
+                docs = retriever.search_by_metadata(question, card_name=raw_name, k=5)
+                my_card_docs.extend(docs)
 
         if my_card_docs:
             my_context_parts = []
             for doc in my_card_docs:
                 name = doc.metadata.get("card_name", "")
-                text = doc.page_content[:400] if doc.page_content else ""
+                text = doc.page_content[:800] if doc.page_content else ""
                 if text.strip():
                     my_context_parts.append(f"[{name}]\n{text}")
                     my_card_names_found.add(name)
             my_context = "\n---\n".join(my_context_parts)
 
-    # 보유 카드에서 충분한 정보가 없으면 일반 검색으로 보충
-    general_results = retriever.search_with_score(question, k=5)
-
-    # 보유 카드에서 이미 다룬 카드는 스킵하면서 추천 카드 컨텍스트 생성
-    recommend_parts = []
-    for doc, score in general_results:
-        card = doc.metadata.get("card_name", "")
-        if card in my_card_names_found:
-            continue
-        text = doc.page_content[:400] if doc.page_content else ""
-        if text.strip():
-            recommend_parts.append(f"[{card}] (유사도: {score:.4f})\n{text}")
-
-    recommend_context = "\n---\n".join(recommend_parts) if recommend_parts else ""
+    # 보유 카드가 없거나 보유 카드에서 결과를 찾지 못한 경우에만 일반 검색
+    recommend_context = ""
+    if not has_registered or not my_context:
+        general_results = retriever.search_with_score(question, k=5)
+        recommend_parts = []
+        for doc, score in general_results:
+            card = doc.metadata.get("card_name", "")
+            if card in my_card_names_found:
+                continue
+            text = doc.page_content[:800] if doc.page_content else ""
+            if text.strip():
+                recommend_parts.append(f"[{card}] (유사도: {score:.4f})\n{text}")
+        recommend_context = "\n---\n".join(recommend_parts) if recommend_parts else ""
 
     # final context assembly
     if has_registered and my_context:
         context = f"[보유 카드 정보]\n{my_context}"
-        if recommend_context:
-            context += f"\n\n[추천 카드 정보]\n{recommend_context}"
     elif recommend_context:
         context = f"[추천 카드 정보]\n{recommend_context}"
     else:
@@ -215,7 +258,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     # MBTI selector
-    st.markdown("<p style='font-size:0.8rem; color:#999; margin-bottom:0.2rem;'>나의 MBTI</p>", unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-label">나의 MBTI</p>', unsafe_allow_html=True)
     mbti_options = ["{} – {}".format(m, MBTI_PROMPTS[m]["name"]) for m in MBTI_LIST]
     selected_idx = st.selectbox(
         "MBTI 선택",
@@ -226,15 +269,15 @@ with st.sidebar:
     )
     st.session_state.selected_mbti = MBTI_LIST[selected_idx]
 
-    st.markdown("<hr style='border:none; border-top:1px solid #eee; margin:0.8rem 0;'>", unsafe_allow_html=True)
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
-    # 새 대화 버튼
+    # new chat button
     if st.button("➕  새 대화", key="new_chat", use_container_width=True):
         create_new_session()
         st.rerun()
 
-    # 대화 세션 목록
-    st.markdown("<p style='font-size:0.75rem; color:#aaa; margin:0.6rem 0 0.3rem 0.2rem;'>이전 대화</p>", unsafe_allow_html=True)
+    # session list
+    st.markdown('<p class="sidebar-label-sm">이전 대화</p>', unsafe_allow_html=True)
     with st.container(height=220, border=False):
         for session in st.session_state.sessions:
             is_active = session["id"] == st.session_state.active_session_id
@@ -247,36 +290,13 @@ with st.sidebar:
                 st.session_state.active_session_id = session["id"]
                 st.rerun()
 
-    st.markdown("<hr style='border:none; border-top:1px solid #eee; margin:1rem 0 0.5rem 0;'>", unsafe_allow_html=True)
+    st.markdown('<hr class="sidebar-divider-lg">', unsafe_allow_html=True)
 
     n_cards = len(st.session_state.registered_cards)
     card_btn_label = f"💳  내 카드 관리 ({n_cards}장)" if n_cards > 0 else "💳  카드 등록"
     if st.button(card_btn_label, key="card_register_btn", use_container_width=True):
         st.session_state.page_mode = "card_register" if st.session_state.page_mode != "card_register" else "chat"
         st.rerun()
-
-    # sidebar button styling
-    st.markdown(f"""
-    <style>
-    div[data-testid="stSidebar"] .stButton > button {{
-        border-radius: 10px;
-        padding: 0.55rem 1rem;
-        font-size: 0.85rem;
-        font-family: 'Noto Sans KR', sans-serif;
-        transition: background 0.15s;
-        text-align: left !important;
-        justify-content: flex-start !important;
-    }}
-    /* 새 대화 버튼 */
-    div[data-testid="stSidebar"] .stButton:first-of-type > button {{
-        background-color: #F5C842 !important;
-        color: #333 !important;
-        font-weight: 600 !important;
-        text-align: center !important;
-        justify-content: center !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
 
 # CARD REGISTER PAGE
 if st.session_state.page_mode == "card_register":
