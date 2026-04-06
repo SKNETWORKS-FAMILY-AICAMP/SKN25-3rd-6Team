@@ -12,7 +12,8 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.messages import HumanMessage, AIMessage
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(ROOT_DIR, "src"))
 load_dotenv()
 
 from retrieval import CardRetriever
@@ -25,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-css_path = os.path.join(os.path.dirname(__file__), "style.css")
+css_path = os.path.join(ROOT_DIR, "assets", "style.css")
 with open(css_path, "r", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
@@ -49,10 +50,7 @@ llm = init_llm()
 @st.cache_data
 def load_mbti_prompts():
     """prompts.yml에서 MBTI별 프롬프트를 로드"""
-    prompts_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "prompts", "prompts.yml"
-    )
+    prompts_path = os.path.join(ROOT_DIR, "prompts", "prompts.yml")
     with open(prompts_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
@@ -63,7 +61,7 @@ MBTI_LIST = list(MBTI_PROMPTS.keys())
 @st.cache_data
 def load_card_name_map():
     """card_name_map.json에서 raw card_name → 한국어 표시명 매핑 로드"""
-    map_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "card_name_map.json")
+    map_path = os.path.join(ROOT_DIR, "src", "card_name_map.json")
     try:
         with open(map_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -76,6 +74,28 @@ CARD_NAME_MAP = load_card_name_map()
 DISPLAY_TO_RAW: dict[str, list[str]] = {}
 for _raw, _display in CARD_NAME_MAP.items():
     DISPLAY_TO_RAW.setdefault(_display, []).append(_raw)
+
+@st.cache_data
+def load_rag_rules() -> dict:
+    """rag_rules.yml에서 전역 RAG 시스템 규칙을 로드"""
+    rules_path = os.path.join(ROOT_DIR, "prompts", "rag_rules.yml")
+    with open(rules_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def build_system_rules_text(rules: dict) -> str:
+    """rag_rules.yml 구조를 LLM 시스템 프롬프트 텍스트로 변환"""
+    sr = rules["system_rules"]
+    lines = [sr["role"].strip(), ""]
+    lines.append("## 필수 분석 항목")
+    for i, step in enumerate(sr["required_analysis_steps"], 1):
+        lines.append(f"\n### 단계 {i}: {step['title']}")
+        lines.append(step["description"].strip())
+    lines.extend(["", "## 절대 금지 사항"])
+    for p in sr["absolute_prohibitions"]:
+        lines.append(f"- {p}")
+    lines.extend(["", "## 출력 형식", sr["output_format"].strip()])
+    return "\n".join(lines)
 
 
 @st.cache_data
@@ -96,6 +116,10 @@ def load_card_list():
         return []
 
 AVAILABLE_CARDS = load_card_list()
+
+RAG_RULES = load_rag_rules()
+SYSTEM_RULES_TEXT = build_system_rules_text(RAG_RULES)
+
 
 def build_rag_chain(mbti_type: str, has_registered_cards: bool = False):
     """선택된 MBTI에 맞는 RAG 체인을 생성 (보유 카드 유무에 따라 지시문 추가)"""
@@ -130,6 +154,7 @@ def build_rag_chain(mbti_type: str, has_registered_cards: bool = False):
         template = template.rstrip() + "\n" + card_instruction
 
     prompt = ChatPromptTemplate.from_messages([
+        ("system", SYSTEM_RULES_TEXT),
         ("system", template),
         MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{question}"),
