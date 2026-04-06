@@ -12,9 +12,10 @@ from chunking import chunk_documents
 
 load_dotenv()
 
-CLEAN_DATA_PATH = "/app/data/clean_data"
-OCR_TXT_PATH = "/app/data/ocr_output"
-CHROMA_DB_PATH = "/chroma_db"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CLEAN_DATA_PATH = os.path.join(BASE_DIR, "data", "clean_data")
+OCR_TXT_PATH = os.path.join(BASE_DIR, "data", "ocr_output")
+CHROMA_DB_PATH = os.path.join(BASE_DIR, "chroma_db")
 
 
 def load_ocr_txt_as_documents(folder_path: str):
