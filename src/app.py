@@ -266,6 +266,22 @@ with st.sidebar:
         label_visibility="collapsed",
     )
     st.session_state.selected_mbti = MBTI_LIST[selected_idx]
+    
+    # MBTI 선택 시 사용자를 DB에 저장하고 user_id 설정
+    if not st.session_state.user_id:
+        try:
+            db = get_db()
+            # 기존 사용자 확인
+            user = db.query(User).filter(User.username == f"User_{st.session_state.selected_mbti}").first()
+            if not user:
+                # 새 사용자 생성
+                user = User(username=f"User_{st.session_state.selected_mbti}", mbti=st.session_state.selected_mbti)
+                db.add(user)
+                db.commit()
+            st.session_state.user_id = user.user_id
+            close_db(db)
+        except Exception as e:
+            st.error(f"사용자 저장 중 오류: {e}")
 
     st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
