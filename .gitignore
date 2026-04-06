@@ -1,6 +1,4 @@
 .DS_Store
-.DS_Store
 .env
-sqlite_db/
 __pycache__/
 *.pyc

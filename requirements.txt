@@ -8,6 +8,7 @@ pypdf
 openai
 tiktoken
 python-dotenv
+pyyaml
 requests
 pandas
 pdf2image

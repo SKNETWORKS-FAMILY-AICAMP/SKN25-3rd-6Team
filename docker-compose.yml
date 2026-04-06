@@ -9,5 +9,6 @@ services:
       - ./data:/app/data
       - ./sqlite_db:/app/sqlite_db
       - ./src:/app/src
+      - ./prompts:/app/prompts
     env_file:
       - .env
