@@ -2,13 +2,16 @@ import os
 import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-from models import Base
+from db.models import Base
 
-# 현재 파일의 디렉토리
+# 현재 파일의 디렉토리 (db 폴더)
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 프로젝트 루트 (src 한 단계 위)
-PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+# src 폴더
+SRC_DIR = os.path.dirname(CURRENT_DIR)
+
+# 프로젝트 루트 (src 폴더의 한 단계 위)
+PROJECT_ROOT = os.path.dirname(SRC_DIR)
 
 # 데이터베이스 경로 설정
 DB_DIR = os.path.join(PROJECT_ROOT, "sqlite_db")

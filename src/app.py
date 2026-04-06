@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv()
 
 from retrieval import CardRetriever
+from db import get_db, close_db, User, UserCard, ChatHistory
 
 # page setting
 st.set_page_config(

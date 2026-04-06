@@ -3,17 +3,17 @@
 (처음 한 번만 실행하면 됨)
 
 Usage:
-    python src/init_db.py
+    python src/db/init_db.py 또는 src 폴더에서 python -m db.init_db
 """
 
 import sys
 import os
 
-# sys.path에 src 디렉토리 추가
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# sys.path에 src 디렉토리 추가 (부모 폴더)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import init_db, get_db, SessionLocal
-from models import User, UserCard, ChatHistory
+from db.database import init_db, get_db, SessionLocal
+from db.models import User, UserCard, ChatHistory
 
 
 def initialize_database():
