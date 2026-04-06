@@ -1,6 +1,6 @@
 from data_loader import load_pdfs_as_documents
 from chunking import chunk_documents
-from easyocr import load_ocr_txt_as_documents
+from ocr_processor import load_ocr_txt_as_documents
 
 # 상대경로 기준
 CLEAN_DATA_PATH = "../data/clean_data"
