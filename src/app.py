@@ -1,11 +1,15 @@
 import streamlit as st
 import os
 import sys
+import html
 import yaml
+import json
+from datetime import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import HumanMessage, AIMessage
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv()
@@ -21,301 +25,9 @@ st.set_page_config(
 )
 
 # CSS
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
-
-/* background */
-html, body, [data-testid="stAppViewContainer"] {
-    background-color: #f8f8f8;
-    font-family: 'Noto Sans KR', sans-serif;
-}
-
-/* sidebar */
-[data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #ebebeb;
-}
-[data-testid="stSidebar"] > div:first-child {
-    padding-top: 2rem;
-}
-
-/* main */
-[data-testid="stMain"] {
-    background-color: #f8f8f8;
-}
-
-/* button style default */
-.stButton > button {
-    border: none;
-    background: none;
-    cursor: pointer;
-    width: 100%;
-    text-align: center;
-}
-
-/* logo */
-.logo-area {
-    padding: 0 1.2rem 1.5rem 1.2rem;
-}
-.logo-text {
-    font-size: 1.6rem;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-}
-.logo-pick { color: #555555; }
-.logo-card { color: #F5C842; }
-.logo-u    { color: #555555; }
-.logo-version {
-    font-size: 0.65rem;
-    color: #aaaaaa;
-    margin-top: -4px;
-}
-
-/* sidebar-menu-button */
-.menu-btn-active {
-    background-color: #F5C842 !important;
-    color: #333333 !important;
-    border-radius: 10px;
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    width: 100%;
-    text-align: center;
-    border: none;
-    cursor: pointer;
-    margin-bottom: 0.3rem;
-}
-.menu-btn-inactive {
-    background-color: transparent;
-    color: #777777;
-    border-radius: 10px;
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 400;
-    width: 100%;
-    text-align: center;
-    border: none;
-    cursor: pointer;
-    margin-bottom: 0.3rem;
-}
-.menu-btn-inactive:hover {
-    background-color: #f5f5f5;
-    color: #333333;
-}
-
-/* card register */
-.card-register {
-    position: absolute;
-    bottom: 2rem;
-    left: 0;
-    width: 100%;
-    padding: 0 1.2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #555555;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-/* chat */
-.chat-wrapper {
-    max-width: 860px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-}
-
-/* user message */
-.msg-user-row {
-    display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
-    gap: 0.8rem;
-    margin-bottom: 1.5rem;
-}
-.msg-user-bubble {
-    background-color: #f0f0f0;
-    border-radius: 18px 18px 4px 18px;
-    padding: 0.85rem 1.1rem;
-    max-width: 70%;
-    font-size: 0.92rem;
-    color: #333333;
-    line-height: 1.55;
-}
-.avatar {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    border-radius: 50%;
-    background-color: #5a6880;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.1rem;
-}
-
-/* bot message */
-.msg-bot-row {
-    display: flex;
-    justify-content: flex-start;
-    align-items: flex-start;
-    gap: 0.8rem;
-    margin-bottom: 1.5rem;
-}
-.msg-bot-bubble {
-    background-color: #f0f0f0;
-    border-radius: 18px 18px 18px 4px;
-    padding: 0.85rem 1.1rem;
-    max-width: 75%;
-    font-size: 0.92rem;
-    color: #333333;
-    line-height: 1.6;
-}
-
-/* chat input */
-.input-bar {
-    position: fixed;
-    bottom: 0;
-    left: 320px;   /* 사이드바 너비만큼 */
-    right: 0;
-    background-color: #f8f8f8;
-    padding: 1rem 2rem 1.4rem 2rem;
-    z-index: 100;
-}
-.input-inner {
-    display: flex;
-    align-items: center;
-    background-color: #ffffff;
-    border: 1.5px solid #e8e8e8;
-    border-radius: 14px;
-    padding: 0.5rem 0.5rem 0.5rem 1rem;
-    max-width: 860px;
-    margin: 0 auto;
-}
-.input-inner input {
-    flex: 1;
-    border: none;
-    outline: none;
-    font-size: 0.92rem;
-    color: #333333;
-    background: transparent;
-    font-family: 'Noto Sans KR', sans-serif;
-}
-.input-btn {
-    background-color: #F5C842;
-    border: none;
-    border-radius: 10px;
-    padding: 0.5rem 1.1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #333333;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.scroll-spacer {
-    height: 100px;
-}
-
-#MainMenu, footer, header { visibility: hidden; }
-[data-testid="stToolbar"] { display: none; }
-
-/* sidebar always visible */
-[data-testid="stSidebar"][aria-expanded="false"] {
-    display: block !important;
-    min-width: 320px !important;
-    transform: none !important;
-}
-button[kind="headerNoPadding"] { display: none !important; }
-[data-testid="collapsedControl"] { display: none !important; }
-
-/* new chat button */
-.new-chat-btn {
-    background-color: #F5C842 !important;
-    color: #333 !important;
-    font-weight: 600 !important;
-    border-radius: 10px !important;
-    border: none !important;
-    margin-bottom: 0.5rem;
-}
-
-/* session item */
-.session-item {
-    padding: 0.5rem 0.8rem;
-    border-radius: 8px;
-    margin-bottom: 0.25rem;
-    font-size: 0.85rem;
-    cursor: pointer;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.session-active {
-    background-color: #FFF8E1;
-    color: #333;
-    font-weight: 600;
-}
-.session-inactive {
-    background-color: transparent;
-    color: #777;
-    font-weight: 400;
-}
-.session-inactive:hover {
-    background-color: #f5f5f5;
-}
-
-/* card registration page */
-.card-reg-header {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #333;
-    margin-bottom: 0.5rem;
-}
-.card-reg-sub {
-    font-size: 0.85rem;
-    color: #999;
-    margin-bottom: 1.5rem;
-}
-.registered-card-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: #FFF8E1;
-    border: 1px solid #F5C842;
-    border-radius: 20px;
-    padding: 0.4rem 0.9rem;
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: #333;
-    margin: 0.2rem;
-}
-.registered-card-chip .chip-icon {
-    font-size: 0.9rem;
-}
-.registered-section {
-    background: #fff;
-    border-radius: 14px;
-    padding: 1.2rem 1.5rem;
-    margin-bottom: 1.2rem;
-    border: 1px solid #eee;
-}
-.registered-section-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 0.8rem;
-}
-.no-cards-msg {
-    text-align: center;
-    padding: 2rem;
-    color: #aaa;
-    font-size: 0.9rem;
-}
-</style>
-""", unsafe_allow_html=True)
+css_path = os.path.join(os.path.dirname(__file__), "style.css")
+with open(css_path, "r", encoding="utf-8") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # initialize retriever and llm
 @st.cache_resource
@@ -351,109 +63,149 @@ MBTI_LIST = list(MBTI_PROMPTS.keys())
 
 
 @st.cache_data
+def load_card_name_map():
+    """card_name_map.json에서 raw card_name → 한국어 표시명 매핑 로드"""
+    map_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "card_name_map.json")
+    try:
+        with open(map_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+CARD_NAME_MAP = load_card_name_map()
+
+# display_name → [raw_name, ...] 역매핑 (동일 카드의 PDF/OCR txt 두 소스 처리)
+DISPLAY_TO_RAW: dict[str, list[str]] = {}
+for _raw, _display in CARD_NAME_MAP.items():
+    DISPLAY_TO_RAW.setdefault(_display, []).append(_raw)
+
+
+@st.cache_data
 def load_card_list():
-    """ChromaDB에 저장된 카드명 목록을 가져옴"""
+    """ChromaDB에 저장된 카드명을 한국어 표시명으로 변환하여 반환
+    JSON 매핑이 있으면 사용하고, 없으면 언더스코어→공백 변환으로 폴백
+    """
     try:
         info = retriever.get_db_info()
-        cards = sorted(info.get("cards", {}).keys())
-        # 'Unknown' 등 무의미한 항목 제거
-        return [c for c in cards if c and c != "Unknown"]
+        raw_names = info.get("cards", {}).keys()
+        display_names = set()
+        for raw in raw_names:
+            if not raw or raw == "Unknown":
+                continue
+            display_names.add(CARD_NAME_MAP.get(raw, raw.replace("_", " ")))
+        return sorted(display_names)
     except Exception:
         return []
 
 AVAILABLE_CARDS = load_card_list()
 
-
 def build_rag_chain(mbti_type: str, has_registered_cards: bool = False):
     """선택된 MBTI에 맞는 RAG 체인을 생성 (보유 카드 유무에 따라 지시문 추가)"""
     template = MBTI_PROMPTS[mbti_type]["template"]
+    now = datetime.now()
+    weekday_kr = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"][now.weekday()]
+    is_weekend = now.weekday() >= 5
+    time_info = f"""
+    [현재 시간 정보]
+    - 현재 시각 : {now.strftime("%Y-%m-%d %H:%M")} ({weekday_kr})
+    - 주말 여부 : {"주말(토/일)" if is_weekend else "평일"}
+    - 시간대 참고 : 카드 혜택 중 시간 조건(예 : 오후 9시~오전 9시, 주말 한정 등)이 있는 경우, 위 현재 시각을 기준으로 해당 혜택이 지금 적용 가능한지 안내하십시오.
+    """
+    template = template.rstrip() + "\n" + time_info
 
     # 보유 카드가 있을 때 추가 지시문 삽입
     if has_registered_cards:
         card_instruction = """
-    [보유 카드 우선 답변 원칙]
-    사용자가 보유 중인 카드 정보가 [보유 카드 정보] 섹션에 제공됩니다.
-    답변 시 반드시 아래 순서를 따르십시오:
-    1단계) 먼저 [보유 카드 정보]에서 질문과 관련된 혜택이 있는지 확인하고, 있다면 해당 카드의 혜택을 가장 먼저 안내하십시오.
-    2단계) 보유 카드에 관련 혜택이 없거나 부족한 경우에만, [추천 카드 정보]에서 더 적합한 카드를 추천하십시오.
-    3단계) 보유 카드 혜택과 추천 카드를 비교해 보여주면 사용자에게 더 유용합니다.
-    - 보유 카드를 언급할 때는 "고객님이 보유하신 [카드명]의 경우..." 형태로 명확히 구분하십시오.
-    - 추천 카드를 언급할 때는 "추가로 추천드리는 카드는..." 형태로 구분하십시오.
-"""
+        [보유 카드 우선 답변 원칙]
+        사용자가 보유 중인 카드 정보가 [보유 카드 정보] 섹션에 제공됩니다.
+        답변 시 반드시 아래 원칙을 따르십시오:
+
+        1) [보유 카드 정보]에서 질문과 관련된 혜택을 찾아 정확히 안내하십시오.
+        - 반드시 context에 기재된 수치(할인율, 한도, 조건 등)를 그대로 인용하십시오.
+        - context에 없는 수치는 절대 추측하거나 생성하지 마십시오.
+        2) 보유 카드 혜택만으로 충분히 답변을 완료하십시오.
+        3) 혜택에 시간 조건(예 : Night TIME 오후 9시~오전 9시, 주말 한정 등)이 있는 경우, [현재 시간 정보]를 참조하여 "지금 이 시간에 적용 가능합니다/불가합니다"를 명시하십시오.
+        4) 답변 마지막에, 다른 카드와 비교가 도움이 될 수 있다면 "더 유리한 카드가 있는지 비교해드릴까요?" 한 문장만 추가하십시오.
+        5) 사용자가 비교를 요청하지 않는 한, 다른 카드를 추천하거나 비교표를 작성하지 마십시오.
+
+        - 보유 카드를 언급할 때는 "고객님이 보유하신 [카드명]의 경우..." 형태로 시작하십시오.
+        """
         template = template.rstrip() + "\n" + card_instruction
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", template),
+        MessagesPlaceholder(variable_name="chat_history"),
         ("human", "{question}"),
     ])
     return prompt | llm | StrOutputParser()
 
 
-def get_rag_answer(question: str, mbti_type: str) -> str:
+def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> str:
     """
-    보유 카드 우선 검색 → 부족하면 일반 추천 카드 검색 → MBTI 맞춤 LLM 답변 생성
+    보유 카드 우선 검색하고 부족하면 일반 추천 카드를 검색하여 MBTI 맞춤 LLM 답변 생성
 
     흐름:
     1) 등록된 카드가 있으면 해당 카드들에서 질문 관련 청크 검색
     2) 보유 카드 결과가 충분하지 않으면 일반 검색으로 추천 카드 보충
     3) 컨텍스트를 [보유 카드 정보] / [추천 카드 정보]로 구분하여 LLM에 전달
     """
+    if chat_history is None:
+        chat_history = []
     registered = st.session_state.get("registered_cards", [])
     has_registered = bool(registered)
 
-    # ── 1단계: 보유 카드에서 검색 ──
+    # registered 카드 검색 결과를 우선적으로 컨텍스트에 포함
     my_context = ""
     my_card_names_found = set()
 
     if has_registered:
         my_card_docs = []
-        for card_name in registered:
-            docs = retriever.search_by_metadata(question, card_name=card_name, k=3)
-            my_card_docs.extend(docs)
+        for display_name in registered:
+            # 표시명 → raw card_name 목록 (PDF + OCR txt 두 소스 모두 검색)
+            raw_names = DISPLAY_TO_RAW.get(display_name, [display_name.replace(" ", "_")])
+            for raw_name in raw_names:
+                docs = retriever.search_by_metadata(question, card_name=raw_name, k=5)
+                my_card_docs.extend(docs)
 
         if my_card_docs:
             my_context_parts = []
             for doc in my_card_docs:
                 name = doc.metadata.get("card_name", "")
-                text = doc.page_content[:400] if doc.page_content else ""
+                text = doc.page_content[:800] if doc.page_content else ""
                 if text.strip():
                     my_context_parts.append(f"[{name}]\n{text}")
                     my_card_names_found.add(name)
             my_context = "\n---\n".join(my_context_parts)
 
-    # ── 2단계: 일반 검색 (추천 카드) ──
-    general_results = retriever.search_with_score(question, k=5)
+    # 보유 카드가 없거나 보유 카드에서 결과를 찾지 못한 경우에만 일반 검색
+    recommend_context = ""
+    if not has_registered or not my_context:
+        general_results = retriever.search_with_score(question, k=5)
+        recommend_parts = []
+        for doc, score in general_results:
+            card = doc.metadata.get("card_name", "")
+            if card in my_card_names_found:
+                continue
+            text = doc.page_content[:800] if doc.page_content else ""
+            if text.strip():
+                recommend_parts.append(f"[{card}] (유사도: {score:.4f})\n{text}")
+        recommend_context = "\n---\n".join(recommend_parts) if recommend_parts else ""
 
-    # 보유 카드와 중복되는 결과는 제거하여 새로운 카드만 추천
-    recommend_parts = []
-    for doc, score in general_results:
-        card = doc.metadata.get("card_name", "")
-        if card in my_card_names_found:
-            continue  # 이미 보유 카드에서 다룬 카드는 스킵
-        text = doc.page_content[:400] if doc.page_content else ""
-        if text.strip():
-            recommend_parts.append(f"[{card}] (유사도: {score:.4f})\n{text}")
-
-    recommend_context = "\n---\n".join(recommend_parts) if recommend_parts else ""
-
-    # ── 3단계: 컨텍스트 조합 ──
+    # final context assembly
     if has_registered and my_context:
         context = f"[보유 카드 정보]\n{my_context}"
-        if recommend_context:
-            context += f"\n\n[추천 카드 정보]\n{recommend_context}"
     elif recommend_context:
         context = f"[추천 카드 정보]\n{recommend_context}"
     else:
         return "죄송합니다. 관련 카드 정보를 찾지 못했습니다."
 
-    # ── 4단계: LLM 답변 생성 ──
+    # RAG chain answer generation
     chain = build_rag_chain(mbti_type, has_registered_cards=has_registered)
-    answer = chain.invoke({"context": context, "question": question})
+    answer = chain.invoke({"context": context, "question": question, "chat_history": chat_history})
     return answer
 
 # session state setup
 if "sessions" not in st.session_state:
-    # 첫 세션 자동 생성
     st.session_state.sessions = [
         {"id": 0, "title": "새 대화", "messages": []}
     ]
@@ -503,7 +255,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     # MBTI selector
-    st.markdown("<p style='font-size:0.8rem; color:#999; margin-bottom:0.2rem;'>나의 MBTI</p>", unsafe_allow_html=True)
+    st.markdown('<p class="sidebar-label">나의 MBTI</p>', unsafe_allow_html=True)
     mbti_options = ["{} – {}".format(m, MBTI_PROMPTS[m]["name"]) for m in MBTI_LIST]
     selected_idx = st.selectbox(
         "MBTI 선택",
@@ -514,66 +266,41 @@ with st.sidebar:
     )
     st.session_state.selected_mbti = MBTI_LIST[selected_idx]
 
-    st.markdown("<hr style='border:none; border-top:1px solid #eee; margin:0.8rem 0;'>", unsafe_allow_html=True)
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
-    # 새 대화 버튼
+    # new chat button
     if st.button("➕  새 대화", key="new_chat", use_container_width=True):
         create_new_session()
         st.rerun()
 
-    # 대화 세션 목록
-    st.markdown("<p style='font-size:0.75rem; color:#aaa; margin:0.6rem 0 0.3rem 0.2rem;'>이전 대화</p>", unsafe_allow_html=True)
-    for session in st.session_state.sessions:
-        is_active = session["id"] == st.session_state.active_session_id
-        label = session["title"]
-        if st.button(
-            label,
-            key=f"session_{session['id']}",
-            use_container_width=True,
-        ):
-            st.session_state.active_session_id = session["id"]
-            st.rerun()
+    # session list
+    st.markdown('<p class="sidebar-label-sm">이전 대화</p>', unsafe_allow_html=True)
+    with st.container(height=220, border=False):
+        for session in st.session_state.sessions:
+            is_active = session["id"] == st.session_state.active_session_id
+            label = session["title"]
+            if st.button(
+                label,
+                key=f"session_{session['id']}",
+                use_container_width=True,
+            ):
+                st.session_state.active_session_id = session["id"]
+                st.rerun()
 
-    # 하단 구분선 & 카드 등록 버튼
-    st.markdown("<hr style='border:none; border-top:1px solid #eee; margin:1rem 0 0.5rem 0;'>", unsafe_allow_html=True)
+    st.markdown('<hr class="sidebar-divider-lg">', unsafe_allow_html=True)
 
-    # 등록된 카드 수 표시
     n_cards = len(st.session_state.registered_cards)
     card_btn_label = f"💳  내 카드 관리 ({n_cards}장)" if n_cards > 0 else "💳  카드 등록"
     if st.button(card_btn_label, key="card_register_btn", use_container_width=True):
         st.session_state.page_mode = "card_register" if st.session_state.page_mode != "card_register" else "chat"
         st.rerun()
 
-    # 세션 버튼 스타일링
-    st.markdown(f"""
-    <style>
-    div[data-testid="stSidebar"] .stButton > button {{
-        border-radius: 10px;
-        padding: 0.55rem 1rem;
-        font-size: 0.85rem;
-        font-family: 'Noto Sans KR', sans-serif;
-        transition: background 0.15s;
-        text-align: left !important;
-        justify-content: flex-start !important;
-    }}
-    /* 새 대화 버튼 */
-    div[data-testid="stSidebar"] .stButton:first-of-type > button {{
-        background-color: #F5C842 !important;
-        color: #333 !important;
-        font-weight: 600 !important;
-        text-align: center !important;
-        justify-content: center !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# ───────────────────── 카드 등록 페이지 ─────────────────────
+# CARD REGISTER PAGE
 if st.session_state.page_mode == "card_register":
     st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
     st.markdown('<p class="card-reg-header">💳 내 카드 등록 / 관리</p>', unsafe_allow_html=True)
-    st.markdown('<p class="card-reg-sub">보유 중인 카드를 등록하면, 질문 시 내 카드 정보를 우선으로 답변해 드려요.</p>', unsafe_allow_html=True)
 
-    # ── 현재 등록된 카드 표시 ──
+    # card display section
     st.markdown('<div class="registered-section">', unsafe_allow_html=True)
     st.markdown('<p class="registered-section-title">등록된 내 카드</p>', unsafe_allow_html=True)
 
@@ -586,13 +313,12 @@ if st.session_state.page_mode == "card_register":
         st.markdown('<p class="no-cards-msg">아직 등록된 카드가 없습니다.</p>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── 카드 추가 / 제거 ──
+    
+    # card add section
     st.markdown('<div class="registered-section">', unsafe_allow_html=True)
     st.markdown('<p class="registered-section-title">카드 추가</p>', unsafe_allow_html=True)
 
     if AVAILABLE_CARDS:
-        # 이미 등록된 카드는 제외하여 선택지 표시
         addable = [c for c in AVAILABLE_CARDS if c not in st.session_state.registered_cards]
         if addable:
             selected_to_add = st.multiselect(
@@ -613,7 +339,7 @@ if st.session_state.page_mode == "card_register":
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── 등록 해제 ──
+    # card remove section
     if st.session_state.registered_cards:
         st.markdown('<div class="registered-section">', unsafe_allow_html=True)
         st.markdown('<p class="registered-section-title">카드 해제</p>', unsafe_allow_html=True)
@@ -634,7 +360,6 @@ if st.session_state.page_mode == "card_register":
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── 채팅으로 돌아가기 ──
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("💬 대화로 돌아가기", key="back_to_chat", use_container_width=True):
         st.session_state.page_mode = "chat"
@@ -642,58 +367,84 @@ if st.session_state.page_mode == "card_register":
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ───────────────────── 채팅 페이지 ─────────────────────
+# chat page
 else:
     active_session = get_active_session()
 
+    # messages display
     chat_html = '<div class="chat-wrapper">'
-
     for msg in active_session["messages"]:
+        content = html.escape(msg["content"]).replace("\n", "<br>")
         if msg["role"] == "user":
-            chat_html += f"""
-            <div class="msg-user-row">
-                <div class="msg-user-bubble">{msg["content"]}</div>
-                <div class="avatar">👤</div>
-            </div>
-            """
+            chat_html += (
+                '<div class="msg-user-row">'
+                f'<div class="msg-user-bubble">{content}</div>'
+                '<div class="avatar">👤</div>'
+                '</div>'
+            )
         else:
-            chat_html += f"""
-            <div class="msg-bot-row">
-                <div class="avatar">👤</div>
-                <div class="msg-bot-bubble">{msg["content"]}</div>
-            </div>
-            """
-
+            chat_html += (
+                '<div class="msg-bot-row">'
+                '<div class="avatar">🤖</div>'
+                f'<div class="msg-bot-bubble">{content}</div>'
+                '</div>'
+            )
     chat_html += '<div class="scroll-spacer"></div></div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
-    st.markdown("""
-    <div class="input-bar">
-        <div class="input-inner" id="chat-input-area">
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # chat input
-    col1, col2 = st.columns([9, 1])
-    with col1:
-        user_input = st.chat_input("궁금한 점이 있다면 입력하세요.")
+    user_input = st.chat_input("궁금한 점이 있다면 입력하세요.")
 
     if user_input and user_input.strip():
         session = get_active_session()
-        session["messages"].append({"role": "user", "content": user_input})
 
-        # 첫 메시지이면 세션 제목을 사용자 입력으로 업데이트
-        if len(session["messages"]) == 1:
+        # session title setting
+        if len(session["messages"]) == 0:
             session["title"] = user_input[:25] + ("..." if len(user_input) > 25 else "")
 
-        # RAG pipeline execution with loading spinner
-        mbti = st.session_state.selected_mbti or MBTI_LIST[0]
-        with st.spinner("카드 혜택을 검색하고 있습니다..."):
-            try:
-                bot_reply = get_rag_answer(user_input, mbti_type=mbti)
-            except Exception as e:
-                bot_reply = f"죄송합니다. 답변 생성 중 오류가 발생했습니다: {e}"
+        # display user message immediately
+        escaped_input = html.escape(user_input).replace("\n", "<br>")
+        st.markdown(
+            '<div class="msg-user-row">'
+            f'<div class="msg-user-bubble">{escaped_input}</div>'
+            '<div class="avatar">👤</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
+        # bot placeholder
+        bot_placeholder = st.empty()
+        bot_placeholder.markdown(
+            '<div class="msg-bot-row">'
+            '<div class="avatar">🤖</div>'
+            '<div class="msg-bot-bubble">⏳ 카드 혜택을 검색하고 있습니다...</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        # RAG response generation
+        mbti = st.session_state.selected_mbti or MBTI_LIST[0]
+        history_messages = []
+        for m in session["messages"]:
+            if m["role"] == "user":
+                history_messages.append(HumanMessage(content=m["content"]))
+            else:
+                history_messages.append(AIMessage(content=m["content"]))
+        try:
+            bot_reply = get_rag_answer(user_input, mbti_type=mbti, chat_history=history_messages)
+        except Exception as e:
+            bot_reply = f"죄송합니다. 답변 생성 중 오류가 발생했습니다: {e}"
+
+        # update bot response
+        escaped_reply = html.escape(bot_reply).replace("\n", "<br>")
+        bot_placeholder.markdown(
+            '<div class="msg-bot-row">'
+            '<div class="avatar">🤖</div>'
+            f'<div class="msg-bot-bubble">{escaped_reply}</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        # message history update
+        session["messages"].append({"role": "user", "content": user_input})
         session["messages"].append({"role": "assistant", "content": bot_reply})
         st.rerun()
