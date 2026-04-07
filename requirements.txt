@@ -4,6 +4,7 @@ langchain-text-splitters
 langchain-openai
 chromadb
 streamlit
+markdown
 pypdf
 openai
 tiktoken

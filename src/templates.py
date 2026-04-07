@@ -99,11 +99,18 @@ def card_tile(card_name: str) -> str:
         f'</div>'
     )
 
-def user_bubble(content: str) -> str:
+def user_bubble(content: str, mbti_type: str = None, root_dir: str = None) -> str:
+    if mbti_type and mbti_type in MBTI_CHARACTERS:
+        if root_dir is None:
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        img_b64 = get_image_base64(MBTI_CHARACTERS[mbti_type], root_dir)
+        avatar = f'<div class="avatar"><img src="data:image/png;base64,{img_b64}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"></div>'
+    else:
+        avatar = '<div class="avatar">👤</div>'
     return (
         '<div class="msg-user-row">'
         f'<div class="msg-user-bubble">{content}</div>'
-        '<div class="avatar">👤</div>'
+        f'{avatar}'
         '</div>'
     )
 

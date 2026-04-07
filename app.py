@@ -5,6 +5,8 @@ import html
 import yaml
 import json
 import time
+import re
+import markdown
 from datetime import datetime
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -95,7 +97,6 @@ def load_rag_rules() -> dict:
 
 
 def build_system_rules_text(rules: dict) -> str:
-    """rag_rules.yml 구조를 LLM 시스템 프롬프트 텍스트로 변환"""
     sr = rules["system_rules"]
     lines = [sr["role"].strip(), ""]
     lines.append("## 필수 분석 항목")
@@ -107,6 +108,13 @@ def build_system_rules_text(rules: dict) -> str:
         lines.append(f"- {p}")
     lines.extend(["", "## 출력 형식", sr["output_format"].strip()])
     return "\n".join(lines)
+
+
+def md_to_html(text: str) -> str:
+    return markdown.markdown(
+        text,
+        extensions=["tables", "nl2br", "sane_lists"],
+    )
 
 
 @st.cache_data
@@ -132,41 +140,47 @@ SYSTEM_RULES_TEXT = build_system_rules_text(RAG_RULES)
 
 def build_rag_chain(mbti_type: str, has_registered_cards: bool = False):
     """선택된 MBTI에 맞는 RAG 체인을 생성 (보유 카드 유무에 따라 지시문 추가)"""
-    template = MBTI_PROMPTS[mbti_type]["template"]
+    mbti_tone = MBTI_PROMPTS[mbti_type]["template"]
+
     now = datetime.now()
     weekday_kr = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"][now.weekday()]
     is_weekend = now.weekday() >= 5
-    time_info = f"""
-    [현재 시간 정보]
-    - 현재 시각 : {now.strftime("%Y-%m-%d %H:%M")} ({weekday_kr})
-    - 주말 여부 : {"주말(토/일)" if is_weekend else "평일"}
-    - 시간대 참고 : 카드 혜택 중 시간 조건(예 : 오후 9시~오전 9시, 주말 한정 등)이 있는 경우, 위 현재 시각을 기준으로 해당 혜택이 지금 적용 가능한지 안내하십시오.
-    """
-    template = template.rstrip() + "\n" + time_info
+    time_info = (
+        f"[현재 시간 정보]\n"
+        f"- 현재 시각 : {now.strftime('%Y-%m-%d %H:%M')} ({weekday_kr})\n"
+        f"- 주말 여부 : {'주말(토/일)' if is_weekend else '평일'}\n"
+        f"- 시간대 참고 : 카드 혜택 중 시간 조건(예 : 오후 9시~오전 9시, 주말 한정 등)이 있는 경우, "
+        f"위 현재 시각을 기준으로 해당 혜택이 지금 적용 가능한지 안내하십시오."
+    )
 
     if has_registered_cards:
-        card_instruction = """
-        [보유 카드 우선 답변 원칙]
-        사용자가 보유 중인 카드 정보가 [보유 카드 정보] 섹션에 제공됩니다.
-        답변 시 반드시 아래 원칙을 따르십시오:
-
-        1) [보유 카드 정보]에서 질문과 관련된 혜택을 찾아 정확히 안내하십시오.
-        - 반드시 context에 기재된 수치(할인율, 한도, 조건 등)를 그대로 인용하십시오.
-        - context에 없는 수치는 절대 추측하거나 생성하지 마십시오.
-        2) 보유 카드 혜택만으로 충분히 답변을 완료하십시오.
-        3) 혜택에 시간 조건(예 : Night TIME 오후 9시~오전 9시, 주말 한정 등)이 있는 경우, [현재 시간 정보]를 참조하여 "지금 이 시간에 적용 가능합니다/불가합니다"를 명시하십시오.
-        4) 답변 마지막에, 다른 카드와 비교가 도움이 될 수 있다면 "더 유리한 카드가 있는지 비교해드릴까요?" 한 문장만 추가하십시오.
-        5) 사용자가 비교를 요청하지 않는 한, 다른 카드를 추천하거나 비교표를 작성하지 마십시오.
-
-        - 보유 카드를 언급할 때는 "고객님이 보유하신 [카드명]의 경우..." 형태로 시작하십시오.
-        """
-        template = template.rstrip() + "\n" + card_instruction
+        card_instruction = (
+            "[보유 카드 우선 답변 원칙]\n"
+            "사용자 보유 카드 정보는 [보유 카드 정보] 섹션에, 기타 참고 카드 정보는 [참고 카드 정보] 섹션에 제공됩니다.\n"
+            "답변 순서는 아래를 따르십시오:\n\n"
+            '1) [보유 카드 정보]에서 질문과 관련된 혜택을 먼저 탐색하십시오.\n'
+            '   - 관련 혜택이 있으면 안내하십시오. 보유 카드를 언급할 때는 "고객님이 보유하신 [카드명]의 경우..." 형태로 시작하십시오.\n'
+            '2) 보유 카드에서 관련 혜택을 찾지 못한 경우:\n'
+            '   - "보유하신 카드에서는 해당 혜택을 찾지 못했습니다." 라고 먼저 안내하십시오.\n'
+            '   - [참고 카드 정보]에서 관련 혜택이 있는 카드를 최대 3개까지 찾아 안내하십시오. 3개를 억지로 채울 필요는 없습니다.\n'
+            '3) [참고 카드 정보]에서도 찾지 못한 경우 "관련 혜택 정보를 찾지 못했습니다." 라고 답하십시오.'
+        )
+    else:
+        card_instruction = (
+            "[카드 미등록 사용자 답변 원칙]\n"
+            "사용자가 보유 카드를 등록하지 않은 상태입니다.\n"
+            "답변 순서는 아래를 따르십시오:\n\n"
+            '1) 답변 서두에 "마이페이지에서 보유하신 카드를 등록하시면 더 정확한 혜택 안내가 가능합니다." 라고 한 줄 안내하십시오.\n'
+            '2) [추천 카드 정보]에서 질문과 관련된 혜택이 있는 카드를 최대 3개까지 찾아 안내하십시오. 3개를 억지로 채울 필요는 없습니다.\n'
+            '3) 관련 카드를 찾지 못한 경우 "관련 혜택 정보를 찾지 못했습니다." 라고 답하십시오.'
+        )
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_RULES_TEXT),
-        ("system", template),
+        ("system", mbti_tone),
+        ("system", time_info + "\n\n" + card_instruction),
         MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{question}"),
+        ("human", "[참고 자료]\n{context}\n\n[질문]\n{question}"),
     ])
     return prompt | llm | StrOutputParser()
 
@@ -206,20 +220,20 @@ def get_rag_answer(question: str, mbti_type: str, chat_history: list = None) -> 
                     my_card_names_found.add(name)
             my_context = "\n---\n".join(my_context_parts)
 
-    recommend_context = ""
-    if not has_registered or not my_context:
-        general_results = retriever.search_with_score(question, k=5)
-        recommend_parts = []
-        for doc, score in general_results:
-            card = doc.metadata.get("card_name", "")
-            if card in my_card_names_found:
-                continue
-            text = doc.page_content[:800] if doc.page_content else ""
-            if text.strip():
-                recommend_parts.append(f"[{card}] (유사도: {score:.4f})\n{text}")
-        recommend_context = "\n---\n".join(recommend_parts) if recommend_parts else ""
+    general_results = retriever.search_with_score(question, k=5)
+    recommend_parts = []
+    for doc, score in general_results:
+        card = doc.metadata.get("card_name", "")
+        if card in my_card_names_found:
+            continue
+        text = doc.page_content[:800] if doc.page_content else ""
+        if text.strip():
+            recommend_parts.append(f"[{card}] (유사도: {score:.4f})\n{text}")
+    recommend_context = "\n---\n".join(recommend_parts) if recommend_parts else ""
 
-    if has_registered and my_context:
+    if has_registered and my_context and recommend_context:
+        context = f"[보유 카드 정보]\n{my_context}\n\n[참고 카드 정보]\n{recommend_context}"
+    elif has_registered and my_context:
         context = f"[보유 카드 정보]\n{my_context}"
     elif recommend_context:
         context = f"[추천 카드 정보]\n{recommend_context}"
@@ -444,11 +458,13 @@ else:
         chat_html = '<div class="chat-wrapper"><div class="scroll-spacer"></div></div>'
     else:
         chat_html = '<div class="chat-wrapper">'
+        current_mbti = st.session_state.get("selected_mbti")
         for msg in active_session["messages"]:
-            content = html.escape(msg["content"]).replace("\n", "<br>")
             if msg["role"] == "user":
-                chat_html += tmpl.user_bubble(content)
+                content = html.escape(msg["content"]).replace("\n", "<br>")
+                chat_html += tmpl.user_bubble(content, mbti_type=current_mbti)
             else:
+                content = md_to_html(msg["content"])
                 chat_html += tmpl.bot_bubble(content)
         chat_html += '<div class="scroll-spacer"></div></div>'
     st.markdown(chat_html, unsafe_allow_html=True)
@@ -470,7 +486,7 @@ else:
         session = get_active_session()
 
         escaped_input = html.escape(user_input).replace("\n", "<br>")
-        st.markdown(tmpl.user_bubble(escaped_input), unsafe_allow_html=True)
+        st.markdown(tmpl.user_bubble(escaped_input, mbti_type=st.session_state.get("selected_mbti")), unsafe_allow_html=True)
 
         bot_placeholder = st.empty()
         bot_placeholder.markdown(tmpl.BOT_LOADING, unsafe_allow_html=True)
@@ -487,8 +503,8 @@ else:
         except Exception as e:
             bot_reply = f"죄송합니다. 답변 생성 중 오류가 발생했습니다: {e}"
 
-        escaped_reply = html.escape(bot_reply).replace("\n", "<br>")
-        bot_placeholder.markdown(tmpl.bot_bubble(escaped_reply), unsafe_allow_html=True)
+        rendered_reply = md_to_html(bot_reply)
+        bot_placeholder.markdown(tmpl.bot_bubble(rendered_reply), unsafe_allow_html=True)
 
         session["messages"].append({"role": "user", "content": user_input})
         session["messages"].append({"role": "assistant", "content": bot_reply})
