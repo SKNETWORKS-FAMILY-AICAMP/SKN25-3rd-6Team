@@ -236,13 +236,11 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
 if "sessions" not in st.session_state:
-    st.session_state.sessions = [
-        {"id": 0, "title": "새 대화", "messages": []}
-    ]
-    st.session_state.next_session_id = 1
+    st.session_state.sessions = []
+    st.session_state.next_session_id = 0
 
 if "active_session_id" not in st.session_state:
-    st.session_state.active_session_id = 0
+    st.session_state.active_session_id = None
 
 if "selected_mbti" not in st.session_state:
     st.session_state.selected_mbti = None
@@ -279,11 +277,13 @@ def _sync_from_db():
         st.session_state.next_session_id = 1
 
 def get_active_session():
-    """현재 활성 세션을 반환"""
+    """현재 활성 세션을 반환. 없으면 None"""
+    if not st.session_state.sessions:
+        return None
     for s in st.session_state.sessions:
         if s["id"] == st.session_state.active_session_id:
             return s
-    return st.session_state.sessions[0]
+    return st.session_state.sessions[0] if st.session_state.sessions else None
 
 def create_new_session():
     new_id = st.session_state.next_session_id
@@ -295,7 +295,7 @@ def create_new_session():
     st.session_state.next_session_id = new_id + 1
     st.session_state.active_session_id = new_id
 
-# ── 스플래시 페이지 (최초 진입) ──
+# splash page
 if st.session_state.page_mode == "splash":
     st.markdown(tmpl.SIDEBAR_HIDE_CSS, unsafe_allow_html=True)
     st.markdown(tmpl.SPLASH, unsafe_allow_html=True)
@@ -303,13 +303,16 @@ if st.session_state.page_mode == "splash":
     st.session_state.page_mode = "login"
     st.rerun()
 
-# ── 로그인 페이지 ──
+# login page
 if not st.session_state.logged_in:
     st.markdown(tmpl.SIDEBAR_HIDE_CSS, unsafe_allow_html=True)
     col_l, col_c, col_r = st.columns([1, 2, 1])
+
     with col_c:
-        st.markdown("## 💳 PickCardU")
-        st.markdown("나만의 카드 추천 챗봇에 오신 것을 환영합니다!")
+        img_base64 = tmpl.get_image_base64("PickCardU.png", ROOT_DIR)
+        img_data_url = f"data:image/png;base64,{img_base64}"
+        st.markdown(f'<div style="text-align: center;"><img src="{img_data_url}" style="width: 150px; height: auto; border-radius: 12px; margin-bottom: 1rem;"></div>', unsafe_allow_html=True)
+        st.markdown("나만의 카드 추천 챗봇에 오신 것을 환영합니다!", unsafe_allow_html=True)
         st.markdown("---")
         with st.form("login_form"):
             login_name = st.text_input("이름", placeholder="이름을 입력하세요")
@@ -381,7 +384,6 @@ with st.sidebar:
         st.session_state.page_mode = "mypage" if st.session_state.page_mode != "mypage" else "chat"
         st.rerun()
 
-
 if st.session_state.page_mode == "mypage":
     st.markdown('<div class="chat-wrapper">', unsafe_allow_html=True)
 
@@ -393,7 +395,7 @@ if st.session_state.page_mode == "mypage":
 
     mbti_label = st.session_state.selected_mbti or "미설정"
     st.markdown(
-        tmpl.profile_card(html.escape(st.session_state.user_name), html.escape(mbti_label)),
+        tmpl.profile_card(html.escape(st.session_state.user_name), html.escape(mbti_label), ROOT_DIR),
         unsafe_allow_html=True,
     )
 
@@ -437,23 +439,35 @@ if st.session_state.page_mode == "mypage":
 else:
     active_session = get_active_session()
 
-    chat_html = '<div class="chat-wrapper">'
-    for msg in active_session["messages"]:
-        content = html.escape(msg["content"]).replace("\n", "<br>")
-        if msg["role"] == "user":
-            chat_html += tmpl.user_bubble(content)
-        else:
-            chat_html += tmpl.bot_bubble(content)
-    chat_html += '<div class="scroll-spacer"></div></div>'
+    # 세션이 없으면 빈 chat 화면 표시
+    if active_session is None:
+        chat_html = '<div class="chat-wrapper"><div class="scroll-spacer"></div></div>'
+    else:
+        chat_html = '<div class="chat-wrapper">'
+        for msg in active_session["messages"]:
+            content = html.escape(msg["content"]).replace("\n", "<br>")
+            if msg["role"] == "user":
+                chat_html += tmpl.user_bubble(content)
+            else:
+                chat_html += tmpl.bot_bubble(content)
+        chat_html += '<div class="scroll-spacer"></div></div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
     user_input = st.chat_input("궁금한 점이 있다면 입력하세요.")
 
     if user_input and user_input.strip():
+        # 세션이 없으면 새 세션 생성
+        if not st.session_state.sessions:
+            new_id = st.session_state.next_session_id
+            st.session_state.sessions.append({
+                "id": new_id,
+                "title": user_input[:25] + ("..." if len(user_input) > 25 else ""),
+                "messages": [],
+            })
+            st.session_state.next_session_id = new_id + 1
+            st.session_state.active_session_id = new_id
+        
         session = get_active_session()
-
-        if len(session["messages"]) == 0:
-            session["title"] = user_input[:25] + ("..." if len(user_input) > 25 else "")
 
         escaped_input = html.escape(user_input).replace("\n", "<br>")
         st.markdown(tmpl.user_bubble(escaped_input), unsafe_allow_html=True)

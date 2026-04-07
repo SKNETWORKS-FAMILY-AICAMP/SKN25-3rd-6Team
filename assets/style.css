@@ -78,13 +78,15 @@ div[data-testid="stSidebar"] .stButton > button {
     transition: background 0.15s;
     text-align: left;
     justify-content: flex-start;
+    padding-left: 0.75rem;
 }
 div[data-testid="stSidebar"] .stButton:first-of-type > button {
     background-color: var(--color-primary);
     color: var(--color-text-dark);
     font-weight: 600;
-    text-align: center;
-    justify-content: center;
+    text-align: left;
+    justify-content: flex-start;
+    padding-left: 0.75rem;
 }
 
 /* sidebar labels & dividers */
@@ -269,7 +271,7 @@ button[kind="headerNoPadding"] { display: none; }
     font-size: 0.9rem;
 }
 
-/* ── Splash page ─────────────────────────────────────────────── */
+/* Splash page */
 .splash-overlay {
     position: fixed;
     inset: 0;
