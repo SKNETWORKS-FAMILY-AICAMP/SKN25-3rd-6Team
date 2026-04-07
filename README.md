@@ -404,7 +404,3 @@ git push origin 브랜치명
   <b>SK Networks AI Camp 25기 · 6팀 · 3차 미니 프로젝트</b><br>
   <i>Our journey continues...</i>
 </div>
-
-# SKN25-3rd-6Team
-## 01. 프로젝트 소개
-main
