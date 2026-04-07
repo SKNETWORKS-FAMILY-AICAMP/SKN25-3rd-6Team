@@ -325,8 +325,7 @@ if not st.session_state.logged_in:
     with col_c:
         img_base64 = tmpl.get_image_base64("PickCardU.png", ROOT_DIR)
         img_data_url = f"data:image/png;base64,{img_base64}"
-        st.markdown(f'<div style="text-align: center;"><img src="{img_data_url}" style="width: 150px; height: auto; border-radius: 12px; margin-bottom: 1rem;"></div>', unsafe_allow_html=True)
-        st.markdown("나만의 카드 추천 챗봇에 오신 것을 환영합니다!", unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align: center;"><img src="{img_data_url}" style="width: 450px; height: auto; border-radius: 12px; margin-bottom: 1rem;"></div>', unsafe_allow_html=True)
         st.markdown("---")
         with st.form("login_form"):
             login_name = st.text_input("이름", placeholder="이름을 입력하세요")
@@ -358,20 +357,6 @@ if not st.session_state.logged_in:
 with st.sidebar:
     st.markdown(tmpl.SIDEBAR_LOGO, unsafe_allow_html=True)
 
-    st.markdown('<p class="sidebar-label">나의 MBTI</p>', unsafe_allow_html=True)
-    mbti_options = ["{} – {}".format(m, MBTI_PROMPTS[m]["name"]) for m in MBTI_LIST]
-    selected_idx = st.selectbox(
-        "MBTI 선택",
-        range(len(MBTI_LIST)),
-        format_func=lambda i: mbti_options[i],
-        index=MBTI_LIST.index(st.session_state.selected_mbti) if st.session_state.selected_mbti else 0,
-        label_visibility="collapsed",
-    )
-    new_mbti = MBTI_LIST[selected_idx]
-    if new_mbti != st.session_state.selected_mbti and st.session_state.get("user_id"):
-        update_user_mbti(st.session_state.user_id, new_mbti)
-    st.session_state.selected_mbti = new_mbti
-
     st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
     if st.button("➕  새 대화", key="new_chat", use_container_width=True):
@@ -379,7 +364,7 @@ with st.sidebar:
         st.rerun()
 
     st.markdown('<p class="sidebar-label-sm">이전 대화</p>', unsafe_allow_html=True)
-    with st.container(height=220, border=False):
+    with st.container(height=160, border=False):
         for session in st.session_state.sessions:
             is_active = session["id"] == st.session_state.active_session_id
             label = session["title"]

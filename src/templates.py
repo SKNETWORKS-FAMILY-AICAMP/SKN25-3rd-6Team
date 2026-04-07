@@ -38,14 +38,21 @@ SIDEBAR_HIDE_CSS = (
     "</style>"
 )
 
-SIDEBAR_LOGO = """
-<div class="logo-area">
-    <div class="logo-text">
-        <span class="logo-pick">Pick</span><span class="logo-card">Card</span><span class="logo-u">U</span>
-    </div>
-    <div class="logo-version">v. 1.0.0</div>
-</div>
-"""
+def get_sidebar_logo(root_dir: str = None) -> str:
+    if root_dir is None:
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    img_base64 = get_image_base64("PickCardU.png", root_dir)
+    img_data_url = f"data:image/png;base64,{img_base64}"
+    
+    return (
+        '<div class="logo-area">'
+        f'  <img src="{img_data_url}" style="width: 240px; height: auto; border-radius: 12px; margin-bottom: 0.8rem;">'
+        '  <div class="logo-version">v. 1.0.0</div>'
+        '</div>'
+    )
+
+SIDEBAR_LOGO = get_sidebar_logo()
 
 def get_splash(root_dir: str = None) -> str:
     if root_dir is None:
@@ -56,7 +63,7 @@ def get_splash(root_dir: str = None) -> str:
     
     return (
         '<div class="splash-overlay">'
-        f'  <img src="{img_data_url}" style="width: 200px; height: auto; margin-bottom: 1rem; border-radius: 15px;">'
+        f'  <img src="{img_data_url}" style="width: 600px; height: auto; margin-bottom: 1rem; border-radius: 15px;">'
         '  <p class="splash-tagline">당신을 위한 개인 맞춤형 신용카드 큐레이션 시스템</p>'
         '</div>'
     )

@@ -145,9 +145,8 @@ div[data-testid="stSidebar"] .stButton:first-of-type > button {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--color-bg);
-    font-size: 1.6rem;
-    overflow: hidden;
+    color: var(--color-text-dark);
+    font-size: 1.5rem;
 }
 
 /* bot message */
