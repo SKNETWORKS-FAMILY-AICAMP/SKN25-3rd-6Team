@@ -1,6 +1,7 @@
 .DS_Store
-.DS_Store
 .env
-sqlite_db/
 __pycache__/
 *.pyc
+chroma_db/chroma.sqlite3
+sqlite_db/*
+!sqlite_db/.gitkeep

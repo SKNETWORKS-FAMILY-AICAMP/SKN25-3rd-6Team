@@ -1,10 +1,12 @@
+import os
 from data_loader import load_pdfs_as_documents
 from chunking import chunk_documents
-from Easyocr import load_ocr_txt_as_documents
+from easy_ocr import load_ocr_txt_as_documents
 
-# 상대경로 기준
-CLEAN_DATA_PATH = "../data/clean_data"
-OCR_TXT_PATH = "../data/ocr_output"
+# __file__ 기준 절대경로 (실행 위치와 무관하게 동작)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CLEAN_DATA_PATH = os.path.join(BASE_DIR, "data", "clean_data")
+OCR_TXT_PATH = os.path.join(BASE_DIR, "data", "ocr_output")
 
 
 def print_sample_chunks(chunked_docs, n=3):
