@@ -23,13 +23,29 @@
 
 ## 팀원 소개
 
-| 이름 | 역할 |
-|------|------|
-| 박연정 (오 박사) | 팀장 · 테크 리딩 · 데이터수집(신한, IBK) · MBTI 프롬프트(INFP) · Docker 환경세팅 · UI/UX |
-| 김서현 (이상해씨) | 데이터수집(삼성, 하나) · MBTI 프롬프트(INTP) · 임베딩 & 벡터DB 저장 · PPT 제작 |
-| 박지현 (망나뇽) | 데이터수집(현대, 국민) · 프롬프트 엔지니어링 · PPT 제작 · 발표 |
-| 신문수 (삐딱구리) | 데이터수집(NH, BC) · MBTI 프롬프트(ISFJ) · PDF OCR · 데이터 로드/청킹 |
-| 이근혁 (고라파덕) | 데이터수집(우리, 롯데) · MBTI 프롬프트(INTJ) · 프롬프트 테스트/개선 · SQLite DB · 발표 |
+<table>
+  <tr>
+    <td align="center"><img src="assets/yeonypark.png" width="100"/></td>
+    <td align="center"><img src="assets/seohyunkim.png" width="100"/></td>
+    <td align="center"><img src="assets/jihyunpark.png" width="100"/></td>
+    <td align="center"><img src="assets/moonsusin.png" width="100"/></td>
+    <td align="center"><img src="assets/geunhyuklee.png" width="100"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>박연정</b><br>(오 박사)</td>
+    <td align="center"><b>김서현</b><br>(이상해씨)</td>
+    <td align="center"><b>박지현</b><br>(망나뇽)</td>
+    <td align="center"><b>신문수</b><br>(삐딱구리)</td>
+    <td align="center"><b>이근혁</b><br>(고라파덕)</td>
+  </tr>
+  <tr>
+    <td align="center">팀장 · 테크 리딩<br>데이터수집(신한, IBK)<br>MBTI 프롬프트(INFP)<br>Docker 환경세팅 · UI/UX</td>
+    <td align="center">데이터수집(삼성, 하나)<br>MBTI 프롬프트(INTP)<br>임베딩 & 벡터DB 저장<br>PPT 제작</td>
+    <td align="center">데이터수집(현대, 국민)<br>프롬프트 엔지니어링<br>PPT 제작 · 발표</td>
+    <td align="center">데이터수집(NH, BC)<br>MBTI 프롬프트(ISFJ)<br>PDF OCR<br>데이터 로드/청킹</td>
+    <td align="center">데이터수집(우리, 롯데)<br>MBTI 프롬프트(INTJ)<br>프롬프트 테스트/개선<br>SQLite DB · 발표</td>
+  </tr>
+</table>
 
 <br>
 
