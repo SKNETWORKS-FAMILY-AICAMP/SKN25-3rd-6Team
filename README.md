@@ -39,6 +39,13 @@
     <td align="center"><b>이근혁</b><br>(고라파덕)</td>
   </tr>
   <tr>
+    <td align="center"><a href="https://github.com/yeony-park">@yeony-park</a></td>
+    <td align="center"><a href="https://github.com/bizseohyunkim">@bizseohyunkim</a></td>
+    <td align="center"><a href="https://github.com/qkrwlgus89">@qkrwlgus89</a></td>
+    <td align="center"><a href="https://github.com/anstn3375">@anstn3375</a></td>
+    <td align="center"><a href="https://github.com/keunlee726">@keunlee726</a></td>
+  </tr>
+  <tr>
     <td align="center">팀장 · 테크 리딩<br>데이터수집(신한, IBK)<br>MBTI 프롬프트(INFP)<br>Docker 환경세팅 · UI/UX</td>
     <td align="center">데이터수집(삼성, 하나)<br>MBTI 프롬프트(INTP)<br>임베딩 & 벡터DB 저장<br>PPT 제작</td>
     <td align="center">데이터수집(현대, 국민)<br>프롬프트 엔지니어링<br>PPT 제작 · 발표</td>
