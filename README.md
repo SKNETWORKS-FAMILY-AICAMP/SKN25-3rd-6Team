@@ -1,9 +1,9 @@
-# 💳 PickCardU
+# PickCardU
 ### MBTI 기반 개인 맞춤형 신용카드 큐레이션 RAG 챗봇
 
 <br>
 
-## 📌 프로젝트 소개
+## 프로젝트 소개
 
 > **"내 소비 패턴에 딱 맞는 카드, AI가 MBTI 말투로 추천해드립니다"**
 
@@ -15,25 +15,41 @@
 
 <br>
 
-## 🗓️ 프로젝트 기간
+## 프로젝트 기간
 
 **2026.04.01 ~ 2026.04.07** (SK Networks AI Camp 25기 · 6팀 · 3차 미니 프로젝트)
 
 <br>
 
-## 👥 팀원 소개
+## 팀원 소개
 
-| 이름 | 역할 |
-|------|------|
-| 박연정 (오 박사) 🧑‍🔬 | 팀장 · 테크 리딩 · 데이터수집(신한, IBK) · MBTI 프롬프트(INFP) · Docker 환경세팅 · UI/UX |
-| 김서현 (이상해씨) 🌿 | 데이터수집(삼성, 하나) · MBTI 프롬프트(INTP) · 임베딩 & 벡터DB 저장 · PPT 제작 |
-| 박지현 (망나뇽) 🐉 | 데이터수집(현대, 국민) · 프롬프트 엔지니어링 · PPT 제작 · 발표 |
-| 신문수 (삐딱구리) 🐸 | 데이터수집(NH, BC) · MBTI 프롬프트(ISFJ) · PDF OCR · 데이터 로드/청킹 |
-| 이근혁 (고라파덕) 🦆 | 데이터수집(우리, 롯데) · MBTI 프롬프트(INTJ) · 프롬프트 테스트/개선 · SQLite DB · 발표 |
+<table>
+  <tr>
+    <td align="center"><img src="assets/yeonypark.png" width="100"/></td>
+    <td align="center"><img src="assets/seohyunkim.png" width="100"/></td>
+    <td align="center"><img src="assets/jihyunpark.png" width="100"/></td>
+    <td align="center"><img src="assets/moonsusin.png" width="100"/></td>
+    <td align="center"><img src="assets/geunhyuklee.png" width="100"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>박연정</b><br>(오 박사)</td>
+    <td align="center"><b>김서현</b><br>(이상해씨)</td>
+    <td align="center"><b>박지현</b><br>(망나뇽)</td>
+    <td align="center"><b>신문수</b><br>(삐딱구리)</td>
+    <td align="center"><b>이근혁</b><br>(고라파덕)</td>
+  </tr>
+  <tr>
+    <td align="center">팀장 · 테크 리딩<br>데이터수집(신한, IBK)<br>MBTI 프롬프트(INFP)<br>Docker 환경세팅 · UI/UX</td>
+    <td align="center">데이터수집(삼성, 하나)<br>MBTI 프롬프트(INTP)<br>임베딩 & 벡터DB 저장<br>PPT 제작</td>
+    <td align="center">데이터수집(현대, 국민)<br>프롬프트 엔지니어링<br>PPT 제작 · 발표</td>
+    <td align="center">데이터수집(NH, BC)<br>MBTI 프롬프트(ISFJ)<br>PDF OCR<br>데이터 로드/청킹</td>
+    <td align="center">데이터수집(우리, 롯데)<br>MBTI 프롬프트(INTJ)<br>프롬프트 테스트/개선<br>SQLite DB · 발표</td>
+  </tr>
+</table>
 
 <br>
 
-## 🛠️ 기술 스택
+## 기술 스택
 
 ### Frontend
 ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
@@ -57,7 +73,7 @@
 
 <br>
 
-## 💡 주제 선정 배경
+## 주제 선정 배경
 
 - 하루에 1.4장씩 단종되는 카드 시장 → 소비자가 최신 혜택을 일일이 파악하기 어려움
 - 카드사별 혜택 구조가 복잡하고 다양하여 단순 비교가 어려움
@@ -68,19 +84,19 @@
 
 <br>
 
-## ✨ 주요 기능
+## 주요 기능
 
 | 기능 | 설명 |
 |------|------|
-| 🤖 카드 추천 | 사용자 질문 + 보유 카드 기반 맞춤 카드 추천 |
-| 💬 MBTI 말투 | 16가지 MBTI 페르소나로 개인화된 답변 제공 |
-| 🗂️ 카드 등록 | 보유 카드 등록 후 혜택 비교 가능 |
-| 📄 카드 Q&A | 카드 약관 기반 정확한 혜택 질의응답 (RAG) |
-| 💾 대화 이력 | 사용자별 채팅 히스토리 저장 |
+| 카드 추천 | 사용자 질문 + 보유 카드 기반 맞춤 카드 추천 |
+| MBTI 말투 | 16가지 MBTI 페르소나로 개인화된 답변 제공 |
+| 카드 등록 | 보유 카드 등록 후 혜택 비교 가능 |
+| 카드 Q&A | 카드 약관 기반 정확한 혜택 질의응답 (RAG) |
+| 대화 이력 | 사용자별 채팅 히스토리 저장 |
 
 <br>
 
-## 🏗️ 시스템 아키텍처
+## 시스템 아키텍처
 
 ```
 데이터 파이프라인                         RAG 파이프라인
@@ -101,7 +117,7 @@
 
 <br>
 
-## 📊 데이터 파이프라인
+## 데이터 파이프라인
 
 **10개 카드사 공식 홈페이지**에서 카드 상품 설명서 PDF를 수집하여 처리합니다.
 
@@ -115,7 +131,7 @@
 
 <br>
 
-## 🔍 핵심 기능 구현
+## 핵심 기능 구현
 
 ### 임베딩 & ChromaDB
 - `text-embedding-3-small` 모델로 벡터 변환 및 저장
@@ -134,7 +150,7 @@
 
 <br>
 
-## 🔄 시퀀스 다이어그램
+## 시퀀스 다이어그램
 
 ```mermaid
 sequenceDiagram
@@ -177,7 +193,7 @@ sequenceDiagram
 
 <br>
 
-## 🗄️ ERD
+## ERD
 
 ```mermaid
 erDiagram
@@ -209,7 +225,7 @@ erDiagram
 
 <br>
 
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```
 SKN25-3rd-6Team/
@@ -250,7 +266,7 @@ SKN25-3rd-6Team/
 
 <br>
 
-## ⚙️ 실행 방법
+## 실행 방법
 
 ### 환경변수 설정
 
@@ -262,7 +278,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 ---
 
-### 🐳 Docker로 실행 (권장)
+### Docker로 실행 (권장)
 
 ```bash
 # 1. 레포지토리 클론
@@ -285,7 +301,7 @@ docker-compose exec app bash
 
 ---
 
-### 💻 로컬에서 실행
+### 로컬에서 실행
 
 ```bash
 # 1. 레포지토리 클론
@@ -309,7 +325,7 @@ streamlit run app.py
 
 <br>
 
-## 📦 src 모듈 설명
+## src 모듈 설명
 
 | 파일 | 설명 |
 |------|------|
@@ -323,7 +339,7 @@ streamlit run app.py
 
 <br>
 
-## 📋 커밋 컨벤션
+## 커밋 컨벤션
 
 | Type | 설명 | 예시 |
 |------|------|------|
@@ -337,7 +353,7 @@ streamlit run app.py
 
 <br>
 
-## 🌿 Git 브랜치 전략
+## Git 브랜치 전략
 
 ```bash
 # 1. main 최신 상태 받아오기
@@ -360,7 +376,7 @@ git push origin 브랜치명
 
 <br>
 
-## 💬 회고
+## 회고
 
 > **박연정** — 팀원 각자가 카드사 데이터를 수집하고 전처리하는 과정에서 실제 금융 데이터의 복잡성을 체감했습니다. RAG 파이프라인을 직접 구축하며 단순 LLM 활용을 넘어 hallucination을 줄이는 것이 얼마나 중요한지 깨달았습니다. 16가지 MBTI 프롬프트를 설계하면서 같은 정보도 전달 방식에 따라 사용자 경험이 크게 달라진다는 점이 인상적이었습니다. 짧은 기간이었지만 데이터 수집부터 임베딩, 검색, UI까지 전체 AI 서비스 파이프라인을 경험할 수 있었던 값진 프로젝트였습니다.
 
@@ -378,5 +394,5 @@ git push origin 브랜치명
 
 <div align="center">
   <b>SK Networks AI Camp 25기 · 6팀 · 3차 미니 프로젝트</b><br>
-  <i>Our journey continues... 🚀</i>
+  <i>Our journey continues...</i>
 </div>
