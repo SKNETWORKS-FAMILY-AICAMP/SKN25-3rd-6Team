@@ -67,7 +67,7 @@
 - 카드사별 혜택 구조가 복잡하고 다양하여 단순 비교가 어려움
 - 개인의 소비 패턴과 성향에 맞는 맞춤형 카드 추천 서비스 부재
 
-**→ RAG 기반 LLM으로 hallucination 없이 실제 카드 데이터에 기반한 신뢰성 높은 큐레이션 서비스 구현**  
+**→ RAG 기반 LLM으로 hallucination 없이 실제 카드 데이터에 기반한 신뢰성 높은 큐레이션 서비스 구현**
 **→ MBTI 성향별 맞춤 프롬프트로 사용자 친화적인 개인화 응답 제공**
 
 <br>
@@ -84,11 +84,115 @@
 
 <br>
 
-## UI 와이어프레임
+## 프로젝트 구조
 
-| 채팅 화면 | 마이페이지 |
-|:-:|:-:|
-| <img src="docs/wireframe_chat.png" width="400"/> | <img src="docs/wireframe_mypage.png" width="400"/> |
+```
+SKN25-3rd-6Team/
+├── app.py                  # Streamlit 메인 앱
+├── docker-compose.yml      # Docker 설정
+├── Dockerfile
+├── requirements.txt
+├── .env                    # 환경변수 (git 제외)
+├── .gitignore
+│
+├── src/                    # 핵심 모듈
+│   ├── data_loader.py      # PDF 문서 로딩
+│   ├── chunking.py         # 텍스트 청킹
+│   ├── embedding.py        # 임베딩 & ChromaDB 저장
+│   ├── Easyocr.py          # EasyOCR 처리
+│   ├── ocr.py              # GPT Vision OCR
+│   ├── retrieval.py        # 검색 전략
+│   ├── templates.py        # 프롬프트 템플릿
+│   └── db/                 # SQLite CRUD
+│       ├── __init__.py
+│       ├── crud.py
+│       ├── database.py
+│       ├── init_db.py
+│       └── models.py
+│
+├── data/
+│   ├── clean_data/         # 전처리된 PDF
+│   ├── raw/                # 원본 PDF
+│   └── ocr_output/         # OCR 결과 txt
+│
+├── chroma_db/              # 벡터 DB 저장소
+├── sqlite_db/              # SQLite DB 저장소
+├── prompts/
+│   ├── prompts.yml         # MBTI 프롬프트
+│   └── rag_rules.yml       # RAG 규칙
+└── assets/                 # 이미지 등 정적 파일
+```
+
+<br>
+
+## ERD
+
+```mermaid
+erDiagram
+    USERS ||--o{ USER_CARDS : "owns"
+    USERS ||--o{ CHAT_HISTORY : "has"
+
+    USERS {
+        int user_id PK "Primary Key"
+        string username "사용자 이름"
+        string mbti "MBTI"
+        datetime created_at "가입일"
+    }
+
+    USER_CARDS {
+        int card_id PK "Primary Key"
+        int user_id FK "사용자 참조"
+        string card_name "보유 카드 명칭"
+        string company "카드사"
+    }
+
+    CHAT_HISTORY {
+        int chat_id PK "Primary Key"
+        int user_id FK "사용자 참조"
+        string role "user 또는 assistant"
+        text content "대화 내용"
+        datetime created_at "메시지 생성 시간"
+    }
+```
+
+<br>
+
+## 데이터 파이프라인
+
+**10개 카드사 공식 홈페이지**에서 카드 상품 설명서 PDF를 수집하여 처리합니다.
+
+| 단계 | 도구 | 설명 |
+|------|------|------|
+| PDF 수집 | - | 삼성, 하나, BC, 신한, 현대, 국민, NH, 우리, 롯데, IBK |
+| 전처리/OCR | PyPDF, EasyOCR | 텍스트 추출 및 정제 |
+| 청킹 | LangChain TextSplitter | chunk_size=800, overlap=120 |
+| 임베딩 | OpenAI text-embedding-3-small | 벡터 변환 |
+| 벡터 저장 | ChromaDB PersistentClient | 유사도 검색 |
+
+<br>
+
+## 핵심 기능 구현
+
+### 임베딩 & ChromaDB
+- `text-embedding-3-small` 모델로 벡터 변환 및 저장
+- LangChain 연동, PersistentClient 사용
+- 유사도 기반 검색
+
+### RAG 검색 전략
+- 유사도 검색 (similarity)
+- 카드명 그룹화 및 키워드 필터링
+- 배치 검색 + LRU 캐시 적용
+
+### SQLite (사용자 데이터 관리)
+- 사용자 생성 및 MBTI 등록/수정 (`get_or_create_user`, `update_user_mbti`)
+- 보유 카드 등록/삭제/조회 (`add_user_card`, `remove_user_card`, `get_user_cards`)
+- 대화 이력 저장/조회/초기화 (`save_chat_message`, `get_chat_history`, `clear_chat_history`)
+- SQLAlchemy ORM + SessionLocal 기반 CRUD
+
+### MBTI 기반 프롬프트 엔지니어링
+- 16가지 MBTI 페르소나 개인화 답변 스타일
+- Hallucination 방지 (context 내 정보만 사용)
+- GPT-4o-mini 연동
 
 <br>
 
@@ -133,85 +237,11 @@ flowchart LR
 
 <br>
 
-## 데이터 파이프라인
+## UI 와이어프레임
 
-**10개 카드사 공식 홈페이지**에서 카드 상품 설명서 PDF를 수집하여 처리합니다.
-
-| 단계 | 도구 | 설명 |
-|------|------|------|
-| PDF 수집 | - | 삼성, 하나, BC, 신한, 현대, 국민, NH, 우리, 롯데, IBK |
-| 전처리/OCR | PyPDF, EasyOCR | 텍스트 추출 및 정제 |
-| 청킹 | LangChain TextSplitter | chunk_size=800, overlap=120 |
-| 임베딩 | OpenAI text-embedding-3-small | 벡터 변환 |
-| 벡터 저장 | ChromaDB PersistentClient | 유사도 검색 |
-
-<br>
-
-## 핵심 기능 구현
-
-### 임베딩 & ChromaDB
-- `text-embedding-3-small` 모델로 벡터 변환 및 저장
-- LangChain 연동, PersistentClient 사용
-- 유사도 기반 검색
-
-### RAG 검색 전략
-- 유사도 검색 (similarity)
-- 카드명 그룹화 및 키워드 필터링
-- 배치 검색 + LRU 캐시 적용
-
-### SQLite (사용자 데이터 관리)
-- 사용자 생성 및 MBTI 등록/수정 (`get_or_create_user`, `update_user_mbti`)
-- 보유 카드 등록/삭제/조회 (`add_user_card`, `remove_user_card`, `get_user_cards`)
-- 대화 이력 저장/조회/초기화 (`save_chat_message`, `get_chat_history`, `clear_chat_history`)
-- SQLAlchemy ORM + SessionLocal 기반 CRUD
-
-### MBTI 기반 프롬프트 엔지니어링
-- 16가지 MBTI 페르소나 개인화 답변 스타일
-- Hallucination 방지 (context 내 정보만 사용)
-- GPT-4o 연동
-
-<br>
-
-## 기술 스택
-
-### Frontend
-![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
-![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
-
-### Backend
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
-
-### Database / Infra
-![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6B35?style=for-the-badge&logo=databricks&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
-
-### Tools
-![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
-![Notion](https://img.shields.io/badge/Notion-000000?style=for-the-badge&logo=notion&logoColor=white)
-![VSCode](https://img.shields.io/badge/VSCode-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
-
-<br>
-
-## 시연 영상
-
-### 사용자 설정
-초기 화면에서 사용자 이름과 MBTI를 설정할 수 있습니다.
-
-<img src="docs/demo_part1.gif" width="600"/>
-
-### 보유 카드 등록 및 우선 추천
-My Page에서 보유 중인 카드를 등록할 수 있으며, 질문 시 보유 카드의 혜택을 우선으로 답변합니다.
-
-<img src="docs/demo_part2.gif" width="600"/>
-
-### 카드 혜택 질의응답
-채팅으로 궁금한 내용을 질문하면 RAG 기반으로 카드 혜택 답변을 받을 수 있습니다.
-
-<img src="docs/demo_part3.gif" width="600"/>
+| 채팅 화면 | 마이페이지 |
+|:-:|:-:|
+| <img src="docs/wireframe_chat.png" width="400"/> | <img src="docs/wireframe_mypage.png" width="400"/> |
 
 <br>
 
@@ -258,76 +288,22 @@ sequenceDiagram
 
 <br>
 
-## ERD
+## 시연 영상
 
-```mermaid
-erDiagram
-    USERS ||--o{ USER_CARDS : "owns"
-    USERS ||--o{ CHAT_HISTORY : "has"
+### 사용자 설정
+초기 화면에서 사용자 이름과 MBTI를 설정할 수 있습니다.
 
-    USERS {
-        int user_id PK "Primary Key"
-        string username "사용자 이름"
-        string mbti "MBTI"
-        datetime created_at "가입일"
-    }
+<img src="docs/demo_part1.gif" width="600"/>
 
-    USER_CARDS {
-        int card_id PK "Primary Key"
-        int user_id FK "사용자 참조"
-        string card_name "보유 카드 명칭"
-        string company "카드사"
-    }
+### 보유 카드 등록 및 우선 추천
+My Page에서 보유 중인 카드를 등록할 수 있으며, 질문 시 보유 카드의 혜택을 우선으로 답변합니다.
 
-    CHAT_HISTORY {
-        int chat_id PK "Primary Key"
-        int user_id FK "사용자 참조"
-        string role "user 또는 assistant"
-        text content "대화 내용"
-        datetime created_at "메시지 생성 시간"
-    }
-```
+<img src="docs/demo_part2.gif" width="600"/>
 
-<br>
+### 카드 혜택 질의응답
+채팅으로 궁금한 내용을 질문하면 RAG 기반으로 카드 혜택 답변을 받을 수 있습니다.
 
-## 프로젝트 구조
-
-```
-SKN25-3rd-6Team/
-├── app.py                  # Streamlit 메인 앱
-├── docker-compose.yml      # Docker 설정
-├── Dockerfile
-├── requirements.txt
-├── .env                    # 환경변수 (git 제외)
-├── .gitignore
-│
-├── src/                    # 핵심 모듈
-│   ├── data_loader.py      # PDF 문서 로딩
-│   ├── chunking.py         # 텍스트 청킹
-│   ├── embedding.py        # 임베딩 & ChromaDB 저장
-│   ├── Easyocr.py          # EasyOCR 처리
-│   ├── ocr.py              # GPT Vision OCR
-│   ├── retrieval.py        # 검색 전략
-│   ├── templates.py        # 프롬프트 템플릿
-│   └── db/                 # SQLite CRUD
-│       ├── __init__.py
-│       ├── crud.py
-│       ├── database.py
-│       ├── init_db.py
-│       └── models.py
-│
-├── data/
-│   ├── clean_data/         # 전처리된 PDF
-│   ├── raw/                # 원본 PDF
-│   └── ocr_output/         # OCR 결과 txt
-│
-├── chroma_db/              # 벡터 DB 저장소
-├── sqlite_db/              # SQLite DB 저장소
-├── prompts/
-│   ├── prompts.yml         # MBTI 프롬프트
-│   └── rag_rules.yml       # RAG 규칙
-└── assets/                 # 이미지 등 정적 파일
-```
+<img src="docs/demo_part3.gif" width="600"/>
 
 <br>
 
@@ -404,6 +380,30 @@ streamlit run app.py
 | `db/models.py` | SQLAlchemy ORM 모델 정의 (User, UserCard, ChatHistory) |
 | `db/crud.py` | 사용자·카드·대화이력 CRUD 함수 |
 | `db/database.py` | SQLite 엔진 및 세션 설정 |
+
+<br>
+
+## 기술 스택
+
+### Frontend
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+
+### Backend
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
+
+### Database / Infra
+![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6B35?style=for-the-badge&logo=databricks&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+
+### Tools
+![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
+![Notion](https://img.shields.io/badge/Notion-000000?style=for-the-badge&logo=notion&logoColor=white)
+![VSCode](https://img.shields.io/badge/VSCode-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
 
 <br>
 
