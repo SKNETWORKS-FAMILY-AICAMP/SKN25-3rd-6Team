@@ -61,30 +61,6 @@
 
 <br>
 
-## 기술 스택
-
-### Frontend
-![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
-![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
-
-### Backend
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
-
-### Database / Infra
-![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6B35?style=for-the-badge&logo=databricks&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
-
-### Tools
-![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
-![Notion](https://img.shields.io/badge/Notion-000000?style=for-the-badge&logo=notion&logoColor=white)
-![VSCode](https://img.shields.io/badge/VSCode-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
-
-<br>
-
 ## 주제 선정 배경
 
 - 하루에 1.4장씩 단종되는 카드 시장 → 소비자가 최신 혜택을 일일이 파악하기 어려움
@@ -119,28 +95,40 @@
 ## 시스템 아키텍처
 
 ```mermaid
-flowchart TB
+flowchart LR
     subgraph DATA["데이터 파이프라인"]
-        A["카드 PDF 수집\n삼성, 하나 등 10개 카드사"] --> B["전처리 / OCR\n텍스트 추출 및 정제"]
-        B --> C["청킹\n문서 분할 처리"]
-        C --> D["임베딩\ntext-embedding-3-small"]
-        D --> E[("ChromaDB 저장\n벡터 DB")]
-        E --> F[("SQLite\nUSER_CARDS + 대화 이력")]
+        direction TB
+        A["카드 PDF 수집\n삼성, 하나 등 10개 카드사"]:::green
+        B["전처리 / OCR\n텍스트 추출 및 정제"]:::green
+        C["청킹\n문서 분할 처리"]:::green
+        D["임베딩\ntext-embedding-3-small"]:::purple
+        E[("ChromaDB 저장\n벡터 DB")]:::purple
+        F[("SQLite\nUSER_CARDS + 대화 이력")]:::purple
+        A --> B --> C --> D --> E
     end
 
     subgraph RAG["RAG 파이프라인"]
-        G["사용자 질문\nMBTI 선택 + 질의 입력"] --> H["USER_CARDS 조회\nSQLite → 보유 카드 확인"]
-        H --> I["1차 : 보유 카드 RAG 검색\nChromaDB 유사도 검색"]
-        I --> J{"결과\n존재?"}
-        J -->|"Yes"| K["GPT LLM\nMBTI 프롬프트 적용"]
-        J -->|"No"| L["2차 : 전체 카드 RAG 검색\nChromaDB 유사도 검색"]
-        L --> K
-        K --> M["Streamlit UI\n답변 출력"]
+        direction TB
+        G["사용자 질문\nMBTI 선택 + 질의 입력"]:::salmon
+        H["USER_CARDS 조회\nSQLite → 보유 카드 확인"]:::salmon
+        I["1차 : 보유 카드 RAG 검색\nChromaDB 유사도 검색"]:::salmon
+        J{"결과\n존재?"}:::salmon
+        K["GPT LLM\nMBTI 프롬프트 적용"]:::salmon
+        L["2차 : 전체 카드 RAG 검색\nChromaDB 유사도 검색"]:::salmon
+        M["Streamlit UI\n답변 출력"]:::blue
+        G --> H --> I --> J
+        J -->|"Yes"| K
+        J -->|"No"| L --> K --> M
     end
 
     E -.->|"벡터 검색"| I
-    F -.->|"보유 카드"| H
     E -.->|"벡터 검색"| L
+    F -.->|"보유 카드"| H
+
+    classDef green fill:#c8edd4,stroke:#5a9e6f,color:#1b4332
+    classDef purple fill:#ddd6f3,stroke:#7c5cbf,color:#3b2f6e
+    classDef salmon fill:#fde0d4,stroke:#c0634a,color:#6b2a1a
+    classDef blue fill:#cce8f4,stroke:#4a90b8,color:#0d3d5e
 ```
 
 <br>
@@ -181,6 +169,30 @@ flowchart TB
 - 16가지 MBTI 페르소나 개인화 답변 스타일
 - Hallucination 방지 (context 내 정보만 사용)
 - GPT-4o 연동
+
+<br>
+
+## 기술 스택
+
+### Frontend
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+
+### Backend
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
+
+### Database / Infra
+![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6B35?style=for-the-badge&logo=databricks&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+
+### Tools
+![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
+![Notion](https://img.shields.io/badge/Notion-000000?style=for-the-badge&logo=notion&logoColor=white)
+![VSCode](https://img.shields.io/badge/VSCode-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
 
 <br>
 
@@ -397,7 +409,7 @@ streamlit run app.py
 
 ## 회고
 
-> **박연정** — 팀원 각자가 카드사 데이터를 수집하고 전처리하는 과정에서 실제 금융 데이터의 복잡성을 체감했습니다. RAG 파이프라인을 직접 구축하며 단순 LLM 활용을 넘어 hallucination을 줄이는 것이 얼마나 중요한지 깨달았습니다. 16가지 MBTI 프롬프트를 설계하면서 같은 정보도 전달 방식에 따라 사용자 경험이 크게 달라진다는 점이 인상적이었습니다. 짧은 기간이었지만 데이터 수집부터 임베딩, 검색, UI까지 전체 AI 서비스 파이프라인을 경험할 수 있었던 값진 프로젝트였습니다.
+> **박연정** — 팀원 모두가 각자 맡은 역할에 최선을 다해준 덕분에 3차 프로젝트를 잘 마무리할 수 있었습니다. 도커 환경을 세팅하는 과정에서 requirements 수정이 자주 발생했고, 그때마다 이미지를 다시 빌드해야 해서 팀원들에게 미안하기도 했습니다. 하지만 RAG의 전체 구조를 하나로 연결하고, 최종 결과물이 의도한 대로 동작하는 것을 보면서 큰 보람을 느꼈습니다. 특히 MBTI 프롬프트를 설계하는 과정에서는 프롬프트가 무조건 길다고 좋은 것이 아니라는 점을 깨달았고, 프롬프트에 따라 결과가 크게 달라질 수 있다는 것을 직접 경험할 수 있었습니다.
 
 > **김서현** — 팀원 각자가 카드사 데이터를 수집하고 전처리하는 과정에서 실제 금융 데이터의 복잡성을 체감했습니다. RAG 파이프라인을 직접 구축하며 단순 LLM 활용을 넘어 hallucination을 줄이는 것이 얼마나 중요한지 깨달았습니다. 16가지 MBTI 프롬프트를 설계하면서 같은 정보도 전달 방식에 따라 사용자 경험이 크게 달라진다는 점이 인상적이었습니다. 짧은 기간이었지만 데이터 수집부터 임베딩, 검색, UI까지 전체 AI 서비스 파이프라인을 경험할 수 있었던 값진 프로젝트였습니다.
 
