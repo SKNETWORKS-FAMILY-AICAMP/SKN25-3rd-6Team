@@ -120,26 +120,27 @@
 
 ```mermaid
 flowchart TB
-    subgraph DATA["🗂 데이터 파이프라인"]
-        A["카드 PDF 수집\n삼성, 하나 등 10개 카드사"] --> B["전처리 / OCR\nPyPDF, EasyOCR"]
-        B --> C["청킹\nLangChain TextSplitter"]
+    subgraph DATA["데이터 파이프라인"]
+        A["카드 PDF 수집\n삼성, 하나 등 10개 카드사"] --> B["전처리 / OCR\n텍스트 추출 및 정제"]
+        B --> C["청킹\n문서 분할 처리"]
         C --> D["임베딩\ntext-embedding-3-small"]
         D --> E[("ChromaDB 저장\n벡터 DB")]
+        E --> F[("SQLite\nUSER_CARDS + 대화 이력")]
     end
 
-    subgraph RAG["🔍 RAG 파이프라인"]
-        F["사용자 질문\nMBTI 선택 + 질의 입력"] --> G["USER_CARDS 조회\nSQLite → 보유 카드 확인"]
-        G --> H["보유 카드 범위 RAG 검색\nChromaDB 유사도 검색"]
-        H --> I{"결과 존재?"}
-        I -->|"Yes"| K["GPT LLM\nMBTI 프롬프트 적용"]
-        I -->|"No"| J["전체 카드 RAG 검색\nChromaDB 유사도 검색"]
-        J --> K
-        K --> L[("SQLite\n대화 이력 저장 · CHAT_HISTORY")]
-        L --> M["Streamlit UI\n답변 출력"]
+    subgraph RAG["RAG 파이프라인"]
+        G["사용자 질문\nMBTI 선택 + 질의 입력"] --> H["USER_CARDS 조회\nSQLite → 보유 카드 확인"]
+        H --> I["1차 : 보유 카드 RAG 검색\nChromaDB 유사도 검색"]
+        I --> J{"결과\n존재?"}
+        J -->|"Yes"| K["GPT LLM\nMBTI 프롬프트 적용"]
+        J -->|"No"| L["2차 : 전체 카드 RAG 검색\nChromaDB 유사도 검색"]
+        L --> K
+        K --> M["Streamlit UI\n답변 출력"]
     end
 
-    E -.->|"벡터 검색 (보유 카드 필터)"| H
-    E -.->|"벡터 검색 (전체 카드)"| J
+    E -.->|"벡터 검색"| I
+    F -.->|"보유 카드"| H
+    E -.->|"벡터 검색"| L
 ```
 
 <br>
@@ -180,6 +181,25 @@ flowchart TB
 - 16가지 MBTI 페르소나 개인화 답변 스타일
 - Hallucination 방지 (context 내 정보만 사용)
 - GPT-4o 연동
+
+<br>
+
+## 시연 영상
+
+### 사용자 설정
+초기 화면에서 사용자 이름과 MBTI를 설정할 수 있습니다.
+
+<img src="docs/demo_part1.gif" width="600"/>
+
+### 보유 카드 등록 및 우선 추천
+My Page에서 보유 중인 카드를 등록할 수 있으며, 질문 시 보유 카드의 혜택을 우선으로 답변합니다.
+
+<img src="docs/demo_part2.gif" width="600"/>
+
+### 카드 혜택 질의응답
+채팅으로 궁금한 내용을 질문하면 RAG 기반으로 카드 혜택 답변을 받을 수 있습니다.
+
+<img src="docs/demo_part3.gif" width="600"/>
 
 <br>
 
@@ -372,20 +392,6 @@ streamlit run app.py
 | `db/models.py` | SQLAlchemy ORM 모델 정의 (User, UserCard, ChatHistory) |
 | `db/crud.py` | 사용자·카드·대화이력 CRUD 함수 |
 | `db/database.py` | SQLite 엔진 및 세션 설정 |
-
-<br>
-
-## 커밋 컨벤션
-
-| Type | 설명 | 예시 |
-|------|------|------|
-| `feat` | 새 기능 추가 | `feat: 로그인 UI 추가` |
-| `fix` | 버그 수정 | `fix: 중복 체크 오류 수정` |
-| `docs` | 문서 변경 | `docs: README 설치 방법 보강` |
-| `style` | 포맷/스타일 | `style: lint 규칙에 맞춰 정리` |
-| `refactor` | 구조 개선 | `refactor: 회원가입 로직 분리` |
-| `test` | 테스트 관련 | `test: signup API 테스트 추가` |
-| `chore` | 환경/설정 | `chore: deps 업데이트` |
 
 <br>
 
