@@ -1,5 +1,9 @@
-bizseohyunkim
 # PickCardU
+
+<div align="center">
+  <img src="assets/img/PickCardU.png" alt="PickCardU" width="400"/>
+</div>
+
 ### MBTI 기반 개인 맞춤형 신용카드 큐레이션 RAG 챗봇
 
 <br>
@@ -26,18 +30,18 @@ bizseohyunkim
 
 <table>
   <tr>
-    <td align="center"><img src="assets/yeonypark.png" width="100"/></td>
-    <td align="center"><img src="assets/seohyunkim.png" width="100"/></td>
-    <td align="center"><img src="assets/jihyunpark.png" width="100"/></td>
-    <td align="center"><img src="assets/moonsusin.png" width="100"/></td>
-    <td align="center"><img src="assets/geunhyuklee.png" width="100"/></td>
+    <td align="center"><img src="docs/yeonypark.png" width="100"/></td>
+    <td align="center"><img src="docs/seohyunkim.png" width="100"/></td>
+    <td align="center"><img src="docs/jihyunpark.png" width="100"/></td>
+    <td align="center"><img src="docs/moonsusin.png" width="100"/></td>
+    <td align="center"><img src="docs/geunhyuklee.png" width="100"/></td>
   </tr>
   <tr>
-    <td align="center"><b>박연정</b><br>(오 박사)</td>
-    <td align="center"><b>김서현</b><br>(이상해씨)</td>
-    <td align="center"><b>박지현</b><br>(망나뇽)</td>
-    <td align="center"><b>신문수</b><br>(삐딱구리)</td>
-    <td align="center"><b>이근혁</b><br>(고라파덕)</td>
+    <td align="center"><b>박연정</b><br>팀장</td>
+    <td align="center"><b>김서현</b><br>팀원</td>
+    <td align="center"><b>박지현</b><br>팀원</td>
+    <td align="center"><b>신문수</b><br>팀원</td>
+    <td align="center"><b>이근혁</b><br>팀원</td>
   </tr>
   <tr>
     <td align="center"><a href="https://github.com/yeony-park">@yeony-park</a></td>
@@ -47,7 +51,7 @@ bizseohyunkim
     <td align="center"><a href="https://github.com/keunlee726">@keunlee726</a></td>
   </tr>
   <tr>
-    <td align="center">팀장 · 테크 리딩<br>데이터수집(신한, IBK)<br>MBTI 프롬프트(INFP)<br>Docker 환경세팅 · UI/UX</td>
+    <td align="center">테크 리드<br>데이터수집(신한, IBK)<br>MBTI 프롬프트(INFP)<br>Docker 환경세팅 · UI/UX</td>
     <td align="center">데이터수집(삼성, 하나)<br>MBTI 프롬프트(INTP)<br>임베딩 & 벡터DB 저장<br>PPT 제작</td>
     <td align="center">데이터수집(현대, 국민)<br>프롬프트 엔지니어링<br>PPT 제작 · 발표</td>
     <td align="center">데이터수집(NH, BC)<br>MBTI 프롬프트(ISFJ)<br>PDF OCR<br>데이터 로드/청킹</td>
@@ -104,23 +108,38 @@ bizseohyunkim
 
 <br>
 
+## UI 와이어프레임
+
+| 채팅 화면 | 마이페이지 |
+|:-:|:-:|
+| <img src="docs/wireframe_chat.png" width="400"/> | <img src="docs/wireframe_mypage.png" width="400"/> |
+
+<br>
+
 ## 시스템 아키텍처
 
-```
-데이터 파이프라인                         RAG 파이프라인
-──────────────────────                   ──────────────────────
-카드 PDF 수집 (10개 카드사)    ──►        사용자 질문 (MBTI + 질의)
-         ↓                                        ↓
-   전처리 / OCR                              RAG 검색 (유사도)
-   (PyPDF, EasyOCR)                               ↓
-         ↓                                   GPT LLM
-       청킹                              (MBTI 프롬프트 적용)
-  (LangChain TextSplitter)                        ↓
-         ↓                                  SQLite 저장
-       임베딩                           (사용자 / 대화 이력)
-  (text-embedding-3-small)                        ↓
-         ↓                              Streamlit UI 답변 출력
-  ChromaDB 저장  ──────────────────────►
+```mermaid
+flowchart TB
+    subgraph DATA["🗂 데이터 파이프라인"]
+        A["카드 PDF 수집\n삼성, 하나 등 10개 카드사"] --> B["전처리 / OCR\nPyPDF, EasyOCR"]
+        B --> C["청킹\nLangChain TextSplitter"]
+        C --> D["임베딩\ntext-embedding-3-small"]
+        D --> E[("ChromaDB 저장\n벡터 DB")]
+    end
+
+    subgraph RAG["🔍 RAG 파이프라인"]
+        F["사용자 질문\nMBTI 선택 + 질의 입력"] --> G["USER_CARDS 조회\nSQLite → 보유 카드 확인"]
+        G --> H["보유 카드 범위 RAG 검색\nChromaDB 유사도 검색"]
+        H --> I{"결과 존재?"}
+        I -->|"Yes"| K["GPT LLM\nMBTI 프롬프트 적용"]
+        I -->|"No"| J["전체 카드 RAG 검색\nChromaDB 유사도 검색"]
+        J --> K
+        K --> L[("SQLite\n대화 이력 저장 · CHAT_HISTORY")]
+        L --> M["Streamlit UI\n답변 출력"]
+    end
+
+    E -.->|"벡터 검색 (보유 카드 필터)"| H
+    E -.->|"벡터 검색 (전체 카드)"| J
 ```
 
 <br>
@@ -150,6 +169,12 @@ bizseohyunkim
 - 유사도 검색 (similarity)
 - 카드명 그룹화 및 키워드 필터링
 - 배치 검색 + LRU 캐시 적용
+
+### SQLite (사용자 데이터 관리)
+- 사용자 생성 및 MBTI 등록/수정 (`get_or_create_user`, `update_user_mbti`)
+- 보유 카드 등록/삭제/조회 (`add_user_card`, `remove_user_card`, `get_user_cards`)
+- 대화 이력 저장/조회/초기화 (`save_chat_message`, `get_chat_history`, `clear_chat_history`)
+- SQLAlchemy ORM + SessionLocal 기반 CRUD
 
 ### MBTI 기반 프롬프트 엔지니어링
 - 16가지 MBTI 페르소나 개인화 답변 스타일
@@ -296,16 +321,13 @@ cd SKN25-3rd-6Team
 # 2. 이미지 빌드 및 컨테이너 실행
 docker-compose up --build -d
 
-# 3. 실행 확인
-docker-compose ps
+# 3. 카드 PDF를 data/clean_data/ 또는 data/ocr_output/ 에 넣은 후 임베딩 실행
+docker-compose exec app python src/embedding.py
 
-# 4. 컨테이너 내부 진입 (선택)
-docker-compose exec app bash
-
-# 5. 브라우저에서 http://localhost:8501 접속
+# 4. 브라우저에서 http://localhost:8501 접속
 ```
 
-> `/data`, `/src`, `/chroma_db`, `/sqlite_db` 디렉토리는 마운트되어 있어 로컬과 공유됩니다.
+> `chroma_db`, `sqlite_db`, `data`, `src`, `prompts`, `assets` 디렉토리는 로컬과 마운트되어 공유됩니다.
 
 ---
 
@@ -327,7 +349,10 @@ source .venv/bin/activate
 # 3. 패키지 설치
 pip install -r requirements.txt
 
-# 4. Streamlit 실행
+# 4. 카드 PDF를 data/clean_data/ 또는 data/ocr_output/ 에 넣은 후 임베딩 실행
+python src/embedding.py
+
+# 5. Streamlit 실행
 streamlit run app.py
 ```
 
@@ -344,6 +369,9 @@ streamlit run app.py
 | `ocr.py` | GPT-4 Vision API로 PDF 페이지 OCR |
 | `retrieval.py` | 보유 카드 메타데이터 필터링 + 유사도 fallback 검색 |
 | `templates.py` | MBTI별 시스템 프롬프트 + RAG 규칙 체인 구성 |
+| `db/models.py` | SQLAlchemy ORM 모델 정의 (User, UserCard, ChatHistory) |
+| `db/crud.py` | 사용자·카드·대화이력 CRUD 함수 |
+| `db/database.py` | SQLite 엔진 및 세션 설정 |
 
 <br>
 
@@ -361,29 +389,6 @@ streamlit run app.py
 
 <br>
 
-## Git 브랜치 전략
-
-```bash
-# 1. main 최신 상태 받아오기
-git checkout main
-git pull origin main
-
-# 2. 내 브랜치로 이동
-git checkout 브랜치명
-
-# 3. main 내용을 내 브랜치에 반영 (충돌 방지)
-git merge main
-
-# 4. 작업 후 커밋
-git add .
-git commit -m "feat: 기능 설명"
-
-# 5. 내 브랜치 푸시
-git push origin 브랜치명
-```
-
-<br>
-
 ## 회고
 
 > **박연정** — 팀원 각자가 카드사 데이터를 수집하고 전처리하는 과정에서 실제 금융 데이터의 복잡성을 체감했습니다. RAG 파이프라인을 직접 구축하며 단순 LLM 활용을 넘어 hallucination을 줄이는 것이 얼마나 중요한지 깨달았습니다. 16가지 MBTI 프롬프트를 설계하면서 같은 정보도 전달 방식에 따라 사용자 경험이 크게 달라진다는 점이 인상적이었습니다. 짧은 기간이었지만 데이터 수집부터 임베딩, 검색, UI까지 전체 AI 서비스 파이프라인을 경험할 수 있었던 값진 프로젝트였습니다.
@@ -392,7 +397,7 @@ git push origin 브랜치명
 
 > **박지현** — LLM을 활용하여 프롬프트 엔지니어링을 해보며, 이전에 GPT 내부에서 프롬프트 작성을 통해 만들었던 챗봇보다 완성도 높은 챗봇을 만든 경험이 색달랐습니다. AI 서비스 파이프라인 전 과정에 참여할 수 있어 뜻깊었습니다.
 
-> **신문수** — (회고 내용을 입력해주세요)
+> **신문수** — OCR 기반 카드 정보 추출과 RAG 기반 질의응답 시스템을 구축하였습니다. 프로젝트에서 데이터 처리 및 전처리, OCR 적용, 텍스트 청크 분할을 담당하였으며 진행 과정에서 OCR 이후의 데이터 전처리와 청크 크기가 성능에 큰 영향을 미친다는 점을 느꼈습니다. 평소 사용하던 LLM 서비스를 직접 구현해볼 수 있어 의미 있는 경험이었습니다. 짧은 기간에도 팀원들과 협력하며 즐겁게 프로젝트를 마무리할 수 있었습니다.
 
 > **이근혁** — 그동안 쉽게 이용했던 LLM 서비스를 활용해서 서비스를 직접 만들어 볼 수 있는 프로젝트를 진행할 수 있어서 유의미했습니다. 이번 프로젝트도 잘 이끌어주는 팀장님과 믿고 따르는 팀원들과 함께할 수 있어서 즐겁게 진행했습니다.
 
